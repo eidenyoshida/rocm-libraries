@@ -130,9 +130,11 @@ set_property(CACHE GPU_TARGETS PROPERTY STRINGS
 # Detect if target ID syntax if supported for default all GPU_TARGETS list
 # Sets the GPU_TARGETS with backward compatibility
 if (GPU_TARGETS STREQUAL "all")
-  rocm_check_target_ids(target_list TARGETS "${SUPPORTED_TARGETS}")
+  #rocm_check_target_ids(target_list TARGETS "${SUPPORTED_TARGETS}")
+  set(target_list "${SUPPORTED_TARGETS}")
 else()
-  rocm_check_target_ids(target_list TARGETS "${GPU_TARGETS}")
+  #rocm_check_target_ids(target_list TARGETS "${GPU_TARGETS}")
+  set(target_list "${GPU_TARGETS}")
 endif()
 
 # if 'target_list' is empty, then compile does not support the gpu arch passed as an argument.
