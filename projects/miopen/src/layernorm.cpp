@@ -73,7 +73,8 @@ miopenStatus_t LayerNormForward(const Handle& handle,
     const auto algo    = AlgorithmName{"LayerNormForward"};
     const auto solvers = solver::SolverContainer<solver::layernorm::Layernorm2DCKForward,
                                                  solver::layernorm::Layernorm4DCKForward,
-                                                 solver::layernorm::LayernormForward>{};
+                                                 solver::layernorm::LayernormForward,
+                                                 solver::layernorm::LayernormForwardStride>{};
 
     solvers.ExecutePrimitive(handle, problem, algo, invoke_params);
 
@@ -98,7 +99,8 @@ std::size_t GetLayerNormBackwardWorkspaceSize(const Handle& handle,
             mode, dyDesc, xDesc, weightDesc, meanDesc, rstdDesc, dxDesc, dwDesc, dbDesc, normalized_dim};
 
     const auto algo    = AlgorithmName{"LayerNormBackward"};
-    const auto solvers = solver::SolverContainer<solver::layernorm::LayernormBackward>{};
+    const auto solvers = solver::SolverContainer<solver::layernorm::LayernormBackward,
+                                                 solver::layernorm::LayernormBackwardStride>{};
 
     auto pair_size_vector = solvers.GetWorkspaceSizes(ctx, problem, true);
 
@@ -150,7 +152,8 @@ miopenStatus_t LayerNormBackward(const Handle& handle,
     }();
 
     const auto algo    = AlgorithmName{"LayerNormBackward"};
-    const auto solvers = solver::SolverContainer<solver::layernorm::LayernormBackward>{};
+    const auto solvers = solver::SolverContainer<solver::layernorm::LayernormBackward,
+                                                 solver::layernorm::LayernormBackwardStride>{};
 
     solvers.ExecutePrimitive(handle, problem, algo, invoke_params);
 
