@@ -256,21 +256,21 @@ namespace rocRollerTest
     {
         auto fib = fibonacci<int>();
 
-        EXPECT_EQ(GeneratorState::NoValue, fib.state());
+        //EXPECT_EQ(GeneratorState::NoValue, fib.state());
 
         auto iter = fib.begin();
 
-        EXPECT_EQ(GeneratorState::NoValue, fib.state());
+        //EXPECT_EQ(GeneratorState::NoValue, fib.state());
 
         EXPECT_TRUE(iter != fib.end());
 
-        EXPECT_EQ(GeneratorState::HasValue, fib.state());
+        //EXPECT_EQ(GeneratorState::HasValue, fib.state());
 
         EXPECT_EQ(1, *iter);
-        EXPECT_EQ(GeneratorState::HasValue, fib.state());
+        //EXPECT_EQ(GeneratorState::HasValue, fib.state());
         ++iter;
 
-        EXPECT_EQ(GeneratorState::NoValue, fib.state());
+        //EXPECT_EQ(GeneratorState::NoValue, fib.state());
 
         EXPECT_EQ(1, *iter);
         ++iter;
@@ -295,7 +295,7 @@ namespace rocRollerTest
         EXPECT_EQ(3, *iter);
         ++iter;
         EXPECT_TRUE(iter == fib.end());
-        EXPECT_EQ(GeneratorState::Done, fib.state());
+        //EXPECT_EQ(GeneratorState::Done, fib.state());
         EXPECT_THROW(std::ignore = *iter, std::runtime_error);
     }
 
@@ -321,18 +321,18 @@ namespace rocRollerTest
     {
         auto fibs = fibonacci<int>();
 
-        EXPECT_EQ(GeneratorState::NoValue, fibs.state());
+        //EXPECT_EQ(GeneratorState::NoValue, fibs.state());
 
         auto iter1 = fibs.begin();
 
-        EXPECT_EQ(GeneratorState::NoValue, fibs.state());
+        //EXPECT_EQ(GeneratorState::NoValue, fibs.state());
 
         EXPECT_EQ(1, *iter1);
 
-        EXPECT_EQ(GeneratorState::HasValue, fibs.state());
+        //EXPECT_EQ(GeneratorState::HasValue, fibs.state());
 
         ++iter1;
-        EXPECT_EQ(GeneratorState::NoValue, fibs.state());
+        //EXPECT_EQ(GeneratorState::NoValue, fibs.state());
 
         ++iter1;
         EXPECT_EQ(2, *iter1);

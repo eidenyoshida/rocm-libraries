@@ -78,10 +78,14 @@ namespace rocRoller
     }
 
     template <typename T, CInputRangeOf<T> TheRange>
-    constexpr void ConcreteRange<T, TheRange>::increment()
+    constexpr bool ConcreteRange<T, TheRange>::increment()
     {
         if(m_iter != m_range.end())
+	{
             ++m_iter;
+	    return true;
+	}
+	return false;
     }
 
     template <std::movable T>
@@ -118,6 +122,28 @@ namespace rocRoller
     }
 
     template <std::movable T>
+    void Generator<T>::promise_type::advance()
+    {
+	auto handle = std::coroutine_handle<promise_type>::from_promise(*this);
+	if(m_range)
+	{
+	    auto res = m_range->increment();
+	    if(res)
+		m_value = m_range->take_value();
+            else
+		m_value.reset();
+
+	    if(not m_value)
+	    {
+		m_range.reset();
+	    }
+	}
+
+	if(not m_value && not handle.done())
+	    handle.resume();
+    }
+
+    template <std::movable T>
     void Generator<T>::promise_type::advance_range()
     {
         m_range->increment();
@@ -125,6 +151,7 @@ namespace rocRoller
         if(!m_value)
             m_range.reset();
     }
+
 
     template <std::movable T>
     constexpr std::suspend_always Generator<T>::promise_type::yield_value(T v) noexcept
@@ -137,29 +164,82 @@ namespace rocRoller
 
     template <std::movable T>
     template <CInputRangeOf<T> ARange>
-    constexpr std::suspend_always Generator<T>::promise_type::yield_value(ARange&& r) noexcept
+    auto Generator<T>::promise_type::yield_value(ARange&& r) noexcept
     {
         using MyRange = ConcreteRange<T, std::remove_reference_t<ARange>>;
         m_range.reset(new MyRange(std::forward<ARange>(r)));
+
+	struct Awaitable
+	{
+	    bool ready = false;
+	    bool suspend = true;
+	    bool await_ready() noexcept
+	    {
+		return ready;
+	    }
+	    bool await_suspend(std::coroutine_handle<promise_type>) noexcept
+	    {
+		return suspend;
+	    }
+
+	    void await_resume() {}
+	};
+
+	m_value.reset();
+
+	Awaitable awaitable;
 
         try
         {
             // The C++ runtime will not catch an exception from here, so we
             // must handle it ourselves.
             m_value = m_range->take_value();
-            if(!m_value)
-                m_range.reset();
+            if(m_value)
+	    {
+		awaitable.ready = false;
+		awaitable.suspend = true;
+       	    }
+	    else
+	    {
+		m_range.reset();
+		awaitable.ready = true;
+		awaitable.suspend = false;
+	    }
         }
         catch(...)
         {
             unhandled_exception();
         }
 
-        return {};
+        return awaitable;
     }
 
+    //template <std::movable T>
+    //template <CInputRangeOf<T> ARange>
+    //constexpr std::suspend_always Generator<T>::promise_type::yield_value(ARange&& r) noexcept
+    //{
+    //    using MyRange = ConcreteRange<T, std::remove_reference_t<ARange>>;
+    //    m_range.reset(new MyRange(std::forward<ARange>(r)));
+
+    //    try
+    //    {
+    //        // The C++ runtime will not catch an exception from here, so we
+    //        // must handle it ourselves.
+    //        m_value = m_range->take_value();
+    //        if(!m_value)
+    //            m_range.reset();
+    //    }
+    //    catch(...)
+    //    {
+    //        unhandled_exception();
+    //    }
+
+    //    return {};
+    //}
+
     template <std::movable T>
-    constexpr std::suspend_always
+    //constexpr std::suspend_always
+    auto
         Generator<T>::promise_type::yield_value(std::initializer_list<T> r) noexcept
     {
         return yield_value<std::initializer_list<T>>(std::move(r));
@@ -168,6 +248,8 @@ namespace rocRoller
     template <std::movable T>
     constexpr GeneratorState Generator<T>::promise_type::state() const
     {
+	throw std::runtime_error("calling state() !!!!!!!!");
+
         check_exception();
 
         if(m_range)
@@ -189,6 +271,8 @@ namespace rocRoller
     template <std::movable T>
     inline constexpr GeneratorState Generator<T>::state() const
     {
+	throw std::runtime_error("calling state() !!!!!!!!");
+
         if(m_coroutine)
             m_coroutine.promise().check_exception();
 
@@ -218,44 +302,51 @@ namespace rocRoller
     template <std::movable T>
     auto Generator<T>::Iterator::operator++() -> Iterator&
     {
-        // If the iterator was previously incremented but not dereferenced, pretend we've dereferenced it for consistency.
-        switch(state())
-        {
-        case GeneratorState::HasRange:
-        case GeneratorState::NoValue:
-            get();
-        default:
-            break;
-        }
+	//std::puts("operator++");
+	m_coroutine.promise().discard_value();
+	m_coroutine.promise().advance();
+	return *this;
 
-        switch(state())
-        {
+        //// If the iterator was previously incremented but not dereferenced, pretend we've dereferenced it for consistency.
+        //switch(state())
+        //{
+        //case GeneratorState::HasRange:
+        //case GeneratorState::NoValue:
+        //    get();
+        //default:
+        //    break;
+        //}
 
-        case GeneratorState::HasValue:
-        case GeneratorState::HasRangeValue:
-            m_coroutine.promise().discard_value();
-            break;
+        //switch(state())
+        //{
 
-        // The call to get() from the top of this function should advance to a
-        // point where we have a value, or to the end of the coroutine.
-        case GeneratorState::NoValue:
-        case GeneratorState::HasRange:
-            throw std::runtime_error("Invalid generator state!");
+        //case GeneratorState::HasValue:
+        //case GeneratorState::HasRangeValue:
+        //    m_coroutine.promise().discard_value();
+        //    break;
 
-        case GeneratorState::HasCopiedValue:
-            m_value.reset();
-            break;
+        //// The call to get() from the top of this function should advance to a
+        //// point where we have a value, or to the end of the coroutine.
+        //case GeneratorState::NoValue:
+        //case GeneratorState::HasRange:
+        //    throw std::runtime_error("Invalid generator state!");
 
-        case GeneratorState::Done:
-        default:
-            break;
-        }
-        return *this;
+        //case GeneratorState::HasCopiedValue:
+        //    m_value.reset();
+        //    break;
+
+        //case GeneratorState::Done:
+        //default:
+        //    break;
+        //}
+        //return *this;
     }
 
     template <std::movable T>
     auto Generator<T>::Iterator::operator++(int) -> Iterator
     {
+	throw std::runtime_error("calling operator++(int) !!!!!!!!");
+
         if(!m_coroutine || m_coroutine.done())
             return *this;
 
@@ -269,10 +360,12 @@ namespace rocRoller
     template <std::movable T>
     T const* Generator<T>::Iterator::get() const
     {
+	throw std::runtime_error("calling get() !!!!!!!!");
+
         switch(state())
         {
         case GeneratorState::HasCopiedValue:
-            return &*m_value;
+            //return &*m_value;
 
         case GeneratorState::HasValue:
         case GeneratorState::HasRangeValue:
@@ -295,35 +388,65 @@ namespace rocRoller
     template <std::movable T>
     T const& Generator<T>::Iterator::operator*() const
     {
-        auto rv = get();
-        if(rv)
-            return *rv;
+	//std::puts("operator*");
+        if(not m_coroutine.promise().value())
+	    throw std::runtime_error("operator* is nullptr!");
+        return (*m_coroutine.promise().value());
 
-        throw std::runtime_error("nullptr!");
+        //auto rv = get();
+        //if(rv)
+        //    return *rv;
+
+        //throw std::runtime_error("nullptr!");
     }
 
     template <std::movable T>
     T const* Generator<T>::Iterator::operator->() const
     {
-        return get();
+	//std::puts("operator->");
+	return &(*m_coroutine.promise().value());
+
+        //return get();
     }
 
     template <std::movable T>
     bool Generator<T>::Iterator::isDone() const
     {
-        return get() == nullptr;
+	if(not m_coroutine)
+	    return true;
+	
+	m_coroutine.promise().check_exception();
+
+	if(not m_coroutine.done())
+	    return false;
+
+	if(m_coroutine.promise().value())
+	    return false;
+
+
+	return true;
+
+
+        //return get() == nullptr;
     }
 
     template <std::movable T>
     bool Generator<T>::Iterator::operator==(std::default_sentinel_t) const
     {
-        return isDone();
+	//std::puts("operator==");
+	//if(not m_coroutine.promise().value())
+	//    m_coroutine.promise().advance();
+
+	return isDone();
+
+        //return isDone();
     }
 
     template <std::movable T>
-    bool Generator<T>::Iterator::operator!=(std::default_sentinel_t) const
+    bool Generator<T>::Iterator::operator!=(std::default_sentinel_t t) const
     {
-        return !isDone();
+	return !(*this == t);
+        //return !isDone();
     }
 
     template <std::movable T>
@@ -332,7 +455,7 @@ namespace rocRoller
         if(m_coroutine)
             m_coroutine.promise().check_exception();
 
-        if(m_value)
+        //if(m_value)
             return GeneratorState::HasCopiedValue;
 
         if(!m_coroutine || m_coroutine.done())
@@ -354,7 +477,7 @@ namespace rocRoller
 
     template <std::movable T>
     Generator<T>::Iterator::Iterator(T value)
-        : m_value(value)
+        //: m_value(value)
     {
     }
 
@@ -393,12 +516,17 @@ namespace rocRoller
     template <std::movable T>
     constexpr auto Generator<T>::begin() -> iterator
     {
+	//std::puts("begin");
+	if(not m_coroutine.promise().value())
+	    m_coroutine.promise().advance();
+
         return iterator{m_coroutine};
     }
 
     template <std::movable T>
     constexpr auto Generator<T>::end() -> iterator
     {
+	//std::puts("end()");
         return iterator{std::default_sentinel_t{}};
     }
 

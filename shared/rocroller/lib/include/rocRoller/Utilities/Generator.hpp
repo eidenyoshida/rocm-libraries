@@ -106,7 +106,7 @@ namespace rocRoller
         /// @brief  Takes the next value from the range.  Will not return a value
         /// if we have reached the end of the range.
         virtual constexpr std::optional<T> take_value() = 0;
-        virtual constexpr void             increment()  = 0;
+        virtual constexpr bool             increment()  = 0;
     };
 
     template <typename T, CInputRangeOf<T> TheRange>
@@ -116,7 +116,7 @@ namespace rocRoller
         explicit ConcreteRange(ARange&& r);
 
         virtual constexpr std::optional<T> take_value() override;
-        virtual constexpr void             increment() override;
+        virtual constexpr bool             increment() override;
 
     private:
         TheRange m_range;
@@ -367,9 +367,11 @@ namespace rocRoller
             constexpr std::suspend_always yield_value(T v) noexcept;
 
             template <CInputRangeOf<T> ARange>
-            constexpr std::suspend_always yield_value(ARange&& r) noexcept;
+            auto yield_value(ARange&& r) noexcept;
+            //constexpr std::suspend_always yield_value(ARange&& r) noexcept;
 
-            constexpr std::suspend_always yield_value(std::initializer_list<T> r) noexcept;
+            //constexpr std::suspend_always yield_value(std::initializer_list<T> r) noexcept;
+            auto yield_value(std::initializer_list<T> r) noexcept;
 
             /****
              * Implementation & Interface
@@ -383,6 +385,8 @@ namespace rocRoller
 
             void discard_value();
             void advance_range();
+
+	    void advance();
 
         private:
             mutable std::optional<T>  m_value;
@@ -439,7 +443,7 @@ namespace rocRoller
             bool           isDone() const;
             GeneratorState state() const;
 
-            std::optional<T> m_value;
+            //std::optional<T> m_value;
             mutable Handle   m_coroutine;
         };
 
