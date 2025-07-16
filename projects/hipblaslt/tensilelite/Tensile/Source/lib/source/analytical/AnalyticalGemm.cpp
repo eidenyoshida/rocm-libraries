@@ -115,11 +115,11 @@ namespace TensileLite
             {
                 //We want to penalize tiles that can't be coalesced for T,N where K is contiguous dimension.
                 //In this case, that's when the K dimension is indivisible by 128 bytes.
-                if(MT_K * safe_ceil_div(element_size_A, 8) % 128 != 0)
+                if(safe_ceil_div(MT_K * element_size_A, 8) % 128 != 0)
                 {
                     L_MT = L_MT * 1.5;
                 }
-                if(MT_K * safe_ceil_div(element_size_B, 8) % 128 != 0)
+                if(safe_ceil_div(MT_K * element_size_B, 8) % 128 != 0)
                 {
                     L_MT = L_MT * 1.5;
                 }
@@ -135,12 +135,12 @@ namespace TensileLite
                 //We end up with inefficient loads.
                 //Multiplication by a value is arbitrary, there is probably a better analytical method to quantify the true impact of this
                 //Effect on the efficiency of computation.
-                if((MT_M * safe_ceil_div(element_size_A, 8)) % (128) != 0)
+                if((safe_ceil_div(MT_M * element_size_A, 8)) % (128) != 0)
                 {
                     L_MT = L_MT * 2;
                 }
 
-                if((MT_N * safe_ceil_div(element_size_B, 8)) % 128 != 0)
+                if((safe_ceil_div(MT_N * element_size_B, 8)) % 128 != 0)
                 {
                     L_MT = L_MT * 2;
                 }
@@ -149,12 +149,12 @@ namespace TensileLite
             //TT : A is contiguous in K and B is contiguous in N
             if(transA && transB)
             {
-                if(MT_K * safe_ceil_div(element_size_A, 8) < 128)
+                if(safe_ceil_div(MT_K * element_size_A, 8) < 128)
                 {
                     L_MT = L_MT * 2;
                 }
 
-                if(MT_N * safe_ceil_div(element_size_B, 8) < 128)
+                if(safe_ceil_div(MT_N * element_size_B, 8) < 128)
                 {
                     L_MT = L_MT * 2;
                 }
@@ -163,12 +163,12 @@ namespace TensileLite
             //NN : A is contiguous in M and B is contiguous in K
             if(!transA && !transB)
             {
-                if(MT_M * safe_ceil_div(element_size_A, 8) < 128)
+                if(safe_ceil_div(MT_M * element_size_A, 8) < 128)
                 {
                     L_MT = L_MT * 2;
                 }
 
-                if(MT_K * safe_ceil_div(element_size_B, 8) < 128)
+                if(safe_ceil_div(MT_K * element_size_B, 8) < 128)
                 {
                     L_MT = L_MT * 2;
                 }
@@ -289,8 +289,8 @@ namespace TensileLite
             // Total loads are loads from A and loads from B
             size_t Ld_A_value  = compute_A_loads(MT_M, MT_K, debug);
             size_t Ld_B_value  = compute_B_loads(MT_N, MT_K, debug);
-            size_t Ld_CU_bytes = (Ld_A_value * safe_ceil_div(element_size_A, 8)) // A Bytes
-                                 + (Ld_B_value * safe_ceil_div(element_size_B, 8)); //B Bytes
+            size_t Ld_CU_bytes = (safe_ceil_div(Ld_A_value * element_size_A, 8)) // A Bytes
+                                 + (safe_ceil_div(Ld_B_value * element_size_B, 8)); //B Bytes
 
             /*Logic for block scaled datatypes (Assuming BS=32 and 8-bit scales)*/
             //TODO This is technically wrong, need separate flag to enable MX so we can differentiate FP8 and MX8
@@ -334,8 +334,8 @@ namespace TensileLite
             if(active_cu < hardware.N_CU)
             {
                 double min_load
-                    = static_cast<double>(M * MT_K * safe_ceil_div(element_size_A, 8)
-                                          + N * MT_K * safe_ceil_div(element_size_B, 8));
+                    = static_cast<double>(safe_ceil_div(M * MT_K * element_size_A, 8)
+                                          + safe_ceil_div(N * MT_K * element_size_B, 8));
                 Ld_MEM  = std::max(Ld_MEM, min_load) * batch;
                 Ld_mem2 = std::max(Ld_mem2, min_load) * batch;
             }
@@ -363,12 +363,12 @@ namespace TensileLite
                 //We end up with inefficient loads.
                 //Multiplication by a value is arbitrary, there is probably a better analytical method to quantify the true impact of this
                 //Effect on the efficiency of computation.
-                if((MT_M * safe_ceil_div(element_size_A, 8)) % (128) != 0)
+                if(safe_ceil_div(MT_M * element_size_A, 8) % (128) != 0)
                 {
                     L_mem = L_mem * 2;
                 }
 
-                if((MT_N * safe_ceil_div(element_size_B, 8)) % (128) != 0)
+                if(safe_ceil_div(MT_N * element_size_B, 8) % (128) != 0)
                 {
                     L_mem = L_mem * 2;
                 }
@@ -377,12 +377,12 @@ namespace TensileLite
             //TT : A is contiguous in K and B is contiguous in N
             if(transA && transB)
             {
-                if(MT_K * safe_ceil_div(element_size_A, 8) < 128)
+                if(safe_ceil_div(MT_K * element_size_A, 8) < 128)
                 {
                     L_mem = L_mem * 2;
                 }
 
-                if(MT_N * safe_ceil_div(element_size_B, 8) < 128)
+                if(safe_ceil_div(MT_N * element_size_B, 8) < 128)
                 {
                     L_mem = L_mem * 2;
                 }
@@ -391,12 +391,12 @@ namespace TensileLite
             //NN : A is contiguous in M and B is contiguous in K
             if(!transA && !transB)
             {
-                if(MT_M * safe_ceil_div(element_size_A, 8) < 128)
+                if(safe_ceil_div(MT_M * element_size_A, 8) < 128)
                 {
                     L_mem = L_mem * 2;
                 }
 
-                if(MT_K * safe_ceil_div(element_size_B, 8) < 128)
+                if(safe_ceil_div(MT_K * element_size_B, 8) < 128)
                 {
                     L_mem = L_mem * 2;
                 }
@@ -505,16 +505,17 @@ namespace TensileLite
                 limited_mem1 = 10;
             }
 
-            double L_epilogue = (static_cast<double>(active_cu) * MT_M * MT_N
-                                 * safe_ceil_div(element_size_out, 8))
+            double L_epilogue = (static_cast<double>(active_cu)
+                                 * safe_ceil_div(MT_M * MT_N * element_size_out, 8))
                                 / limited_mem1;
 
             //K-Split reductions are globally coherent, we need to write and read split-1 MT_M*MT_N tiles to coherent memory
             if(split > 1)
             {
                 size_t n_partials              = split - 1;
-                double partial_readwrite_bytes = (2 * active_cu * safe_ceil_div(element_size_out, 8)
-                                                  * MT_M * MT_N * n_partials);
+                double partial_readwrite_bytes
+                    = (2 * active_cu * safe_ceil_div(MT_M * MT_N * element_size_out, 8)
+                       * n_partials);
                 double L_reduce = partial_readwrite_bytes / (hardware.mem3_perf_ratio);
                 L_epilogue += L_reduce * 1;
             }
@@ -602,7 +603,7 @@ namespace TensileLite
 
             // If bigger than cache capacity, reduce mem1 tile size and recompute uncached reads
             while(l2_A_uncached_reads + l2_B_uncached_reads
-                  > hardware.L2_capacity / safe_ceil_div(element_size, 8))
+                  > safe_ceil_div(hardware.L2_capacity * 8, element_size))
             {
                 // Reduce M dimension by 1
                 l2_m -= 1;
@@ -982,7 +983,7 @@ namespace TensileLite
             size_t Ld_A_value = compute_A_loads(MT_M, MT_K, debug);
             size_t Ld_B_value = compute_B_loads(MT_N, MT_K, debug);
             // Size of those in bytes
-            size_t LDS_usage = (Ld_A_value + Ld_B_value) * (element_size / 8);
+            size_t LDS_usage = safe_ceil_div((Ld_A_value + Ld_B_value) * element_size, 8);
 
             if(LDS_usage > hardware.LDS_capacity)
             {
