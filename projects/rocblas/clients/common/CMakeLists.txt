@@ -61,7 +61,6 @@ function( rocblas_client_library_settings lib_target_ )
     )
   endif()
 
-  set_target_properties( ${lib_target_} PROPERTIES COMPILE_FLAGS "-mcode-object-version=6" )
   target_compile_definitions( ${lib_target_} PRIVATE ROCM_USE_FLOAT16 ROCBLAS_INTERNAL_API ROCBLAS_NO_DEPRECATED_WARNINGS )
   target_compile_definitions( ${lib_target_} PRIVATE ${TENSILE_DEFINES} ${HIPBLASLT_DEFINES} GOOGLE_TEST )
   # GOOGLE_TEST left off for reuse of this function by by gemm tuner
