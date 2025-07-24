@@ -61,9 +61,6 @@ namespace TensileLite
 
         // Determine the compute latency per MT_MxMT_NxMT_K Macro Tile (L_MT).
         size_t compute_mt_compute_latency(const Hardware& hardware,
-                                          size_t          M,
-                                          size_t          N,
-                                          size_t          K,
                                           bool            transA,
                                           bool            transB,
                                           size_t          MT_M,
@@ -99,12 +96,14 @@ namespace TensileLite
         // Computes the number of active compute units if there is only one wave and it is partial
         // Otherwise, returns hardware.N_CU
         size_t compute_active_CU(
-            const Hardware& hardware, size_t M, size_t N, size_t MT_M, size_t MT_N);
+            const Hardware& hardware, size_t M, size_t N, size_t batch, size_t MT_M, size_t MT_N);
 
         double compute_memory_latency(const Hardware& hardware,
                                       size_t          M,
                                       size_t          N,
                                       size_t          K,
+                                      bool            transA,
+                                      bool            transB,
                                       size_t          batch,
                                       size_t          MT_M,
                                       size_t          MT_N,
@@ -213,6 +212,8 @@ namespace TensileLite
                                    size_t          N,
                                    size_t          K,
                                    size_t          batch,
+                                   bool            transA,
+                                   bool            transB,
                                    size_t          MT_M,
                                    size_t          MT_N,
                                    size_t          MT_K,

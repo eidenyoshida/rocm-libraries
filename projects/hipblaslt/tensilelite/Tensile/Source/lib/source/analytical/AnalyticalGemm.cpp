@@ -82,9 +82,6 @@ namespace TensileLite
 
         // Determine the compute latency per MT_MxMT_NxMT_K Macro Tile (L_MT).
         size_t compute_mt_compute_latency(const Hardware& hardware,
-                                          size_t          M,
-                                          size_t          N,
-                                          size_t          K,
                                           bool            transA,
                                           bool            transB,
                                           size_t          MT_M,
@@ -458,9 +455,6 @@ namespace TensileLite
         {
             // 1) Compute per-tile latencies
             double L_compute = compute_mt_compute_latency(hardware,
-                                                          M,
-                                                          N,
-                                                          K,
                                                           transA,
                                                           transB,
                                                           MT_M,

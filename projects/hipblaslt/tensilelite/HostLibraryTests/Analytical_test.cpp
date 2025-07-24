@@ -12,10 +12,13 @@
 // AnalyticalGemm
 TEST(Analytical, ComputeNumMatrixInstructions)
 {
+    auto gfx942arch = TensileLite::analytical::Hardware::archNameToEnum("gfx942");
+    auto gfx942
+        = TensileLite::analytical::Hardware(gfx942arch, 1, 1, 1, 1.0, 1.0, 1.0, 1, 1.0, 1, 1.0);
     auto mt128x128x64 = TensileLite::analytical::compute_number_matrix_instructions(
-        128, 128, 64, 16, 16, 16, false);
+        gfx942, 128, 128, 64, 16, 16, 16, false);
     auto mt16x16x64 = TensileLite::analytical::compute_number_matrix_instructions(
-        16, 16, 64, 16, 16, 32, false);
+        gfx942, 16, 16, 64, 16, 16, 32, false);
     EXPECT_EQ(mt128x128x64, 256); // 8 * 8 * 4
     EXPECT_EQ(mt16x16x64, 2); // 1 * 1 * 2
 }
@@ -71,12 +74,12 @@ TEST(Analytical, ComputeNumberWaves)
     auto gfx942
         = TensileLite::analytical::Hardware(gfx942arch, 304, 1, 1, 1.0, 1.0, 1.0, 1, 1.0, 1, 1.0);
     auto num_waves
-        = TensileLite::analytical::compute_number_waves(gfx942, 4096, 1024, 3, 256, 256, false);
+        = TensileLite::analytical::compute_number_waves(gfx942, 4096, 1024, 3, 256, 256, 1, false);
     // 16 * 4 * 3 == 192 < 304
     EXPECT_EQ(num_waves, 1);
     // 16 * 32 * 3 == 1536 > 5*304
     num_waves
-        = TensileLite::analytical::compute_number_waves(gfx942, 4096, 8192, 3, 256, 256, false);
+        = TensileLite::analytical::compute_number_waves(gfx942, 4096, 8192, 3, 256, 256, 1, false);
     EXPECT_EQ(num_waves, 6);
 }
 
@@ -405,9 +408,11 @@ TEST(Analytical, BestMacroTileSize)
                            size_t, // MT_K
                            size_t, // MI_M
                            size_t, // MI_N
-                           size_t // MI_K
+                           size_t, // MI_K
+                           size_t // Occupancy
                            >>
-         MT_list = {{256, 256, 32, 32, 32, 8}, {128, 128, 64, 32, 32, 8}, {64, 64, 64, 32, 32, 8}};
+        MT_list
+        = {{256, 256, 32, 32, 32, 8, 1}, {128, 128, 64, 32, 32, 8, 1}, {64, 64, 64, 32, 32, 8, 1}};
     auto results = select_best_macro_tile_size(
         4096, 4096, 8192, 1, true, false, gfx942, MT_list, 16, 16, 32, 0, 0.8, false, false, 1);
 
