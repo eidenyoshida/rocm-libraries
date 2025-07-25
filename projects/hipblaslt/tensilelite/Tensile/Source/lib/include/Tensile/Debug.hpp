@@ -67,6 +67,8 @@ namespace TensileLite
 
         bool printLibraryLogicIndex() const;
 
+        bool printLatency() const;
+
         bool naivePropertySearch() const;
 
         bool skipKernelLaunch() const;

@@ -24,6 +24,7 @@
  *
  *******************************************************************************/
 
+#include <Tensile/Debug.hpp>
 #include <Tensile/analytical/Utils.hpp>
 // #include "Utils.hpp"
 
@@ -326,16 +327,16 @@ namespace TensileLite
 
             // Finally, use your existing tie-breaker on top_candidates
             pick_best_tile_by_arithmetic_intensity(valid_results, num_the_same);
-            if(print)
+            if(Debug::Instance().printLatency())
             {
                 for(const auto& tile : valid_results)
                 {
-                    std::cout << M << "x" << N << "x" << K
-                              << "Selected Macro-Tile: Latency=" << std::get<0>(tile)
-                              << ", MT_M=" << std::get<1>(tile) << ", MT_N=" << std::get<2>(tile)
-                              << ", MT_K=" << std::get<3>(tile) << ", MI_M=" << std::get<4>(tile)
-                              << ", MI_N=" << std::get<5>(tile) << ", MI_K=" << std::get<6>(tile)
-                              << "\n";
+                    std::cout << "M=" << M << ", N=" << N << ", K=" << K << ", B=" << batch
+                              << ", Latency=" << std::get<0>(tile) << ", MT_M=" << std::get<1>(tile)
+                              << ", MT_N=" << std::get<2>(tile) << ", MT_K=" << std::get<3>(tile)
+                              << ", MI_M=" << std::get<4>(tile) << ", MI_N=" << std::get<5>(tile)
+                              << ", MI_K=" << std::get<6>(tile)
+                              << ", Occupancy=" << std::get<7>(tile) << "\n";
                 }
             }
 
