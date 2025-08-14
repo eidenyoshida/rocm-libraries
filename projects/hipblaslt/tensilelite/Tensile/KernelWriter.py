@@ -177,9 +177,7 @@ class StateValues:
   lrvwUnrollMetadata: int                       = 0 # For Sparse Metadat
 
   numMfmaPerIter: int                    = 0
-  SubTileIdxA: int                       = 0
-  SubTileIdxB: int                       = 0
-  mfmaIndex: int                         = -1  # For MFMA, index of the current mfma instruction
+  SubTileIdx: int                       = 0
   numReadsIterCoalescedA: int            = 0
   numReadsIterCoalescedB: int            = 0
   numReadsIterCoalescedMetadata: int     = 0
@@ -770,7 +768,6 @@ class KernelWriter(metaclass=abc.ABCMeta):
       isBarrier = kernel["LoopIters"] - self.states.numItersPLR
       writeItems = list(localWriteCode.items())
       macIterItems = macIterCode.flatitems()
-      numMfmaPerIter = len(macIterItems)
       skipLocalWriteWaitcnt = 0
       localReadsWaitcnt = 0
       localReadsIssuedInThisIter = 0
@@ -2295,8 +2292,7 @@ class KernelWriter(metaclass=abc.ABCMeta):
       subIterCode = self._makeSubIterSchedule(kernel, tensorParametersA, tensorParametersB, localReads, \
                       u, pointerLWCode, pointerLRCode, waitCode, macIterCode, waitLWCode, syncCode, pack[luIdx], module, NLLlast)
       module.add(subIterCode)
-      self.states.SubTileIdxA = (self.states.SubTileIdxA + 1) % kernel["numSubTilesA"]
-      self.states.SubTileIdxB = (self.states.SubTileIdxB + 1) % kernel["numSubTilesB"]
+      self.states.SubTileIdx = (self.states.SubTileIdx + 1) % kernel["numSubTiles"]
       pack[luIdx] = Module()
     return module
 
@@ -2739,8 +2735,7 @@ class KernelWriter(metaclass=abc.ABCMeta):
       subIterCode = self._makeSubIterSchedule(kernel, tensorParametersA, tensorParametersB, localReads, \
                       u, pointerLWCode, pointerLRCode, waitCode, macIterCode, waitLWCode, syncCode, pack[luIdx], module)
       module.add(subIterCode) # add scheduled "other", local reads, local writes
-      self.states.SubTileIdxA = (self.states.SubTileIdxA + 1) % kernel["numSubTilesA"]
-      self.states.SubTileIdxB = (self.states.SubTileIdxB + 1) % kernel["numSubTilesB"]
+      self.states.SubTileIdx = (self.states.SubTileIdx + 1) % kernel["numSubTiles"]
       pack[luIdx] = Module()
 
     # close unrolled loop
@@ -2865,11 +2860,10 @@ class KernelWriter(metaclass=abc.ABCMeta):
 
         module.add(self.closePrefetchGlobalRead2())
 
-      self.states.subTileIdxA = 0
-      self.states.subTileIdxB = 0
+      self.states.subTileIdx = 0
 
       if kernel["ForceUnrollSubIter"]:
-        kernel["LoopIters"] = kernel["numSubTilesA"] * kernel["numSubTilesA"]
+        kernel["LoopIters"] = kernel["numSubTiles"] * kernel["numSubTiles"]
         self.states.numMfmaPerIter = self.states.numMfmaPerIter//kernel["LoopIters"]
         self.states.numItersPLR = 1
 
@@ -2911,8 +2905,7 @@ class KernelWriter(metaclass=abc.ABCMeta):
               if not kernel["ForceUnrollSubIter"] and (iui*self.states.numReadsIterCoalescedB < kernel["InnerUnroll"]):
                 module.addComment1("local read inc b")
                 module.add(self.localReadInc(kernel, iui, tensorParametersB))
-        self.states.SubTileIdxA = (self.states.SubTileIdxA + 1) % kernel["numSubTilesA"]
-        self.states.SubTileIdxB = (self.states.SubTileIdxB + 1) % kernel["numSubTilesB"]
+        self.states.SubTileIdx = (self.states.SubTileIdx + 1) % kernel["numSubTiles"]
       module.add(self.closeSumAtLeastUnroll(kernel, tensorParametersA, tensorParametersB, prefetch=True, isOptNLL=False, isNGLL=False))
 
     loopCopies = 2 if expand else 1

@@ -166,16 +166,15 @@ class LocalReadMFMA(LocalRead):
     """
     def __call__(self, writer, kernel, bufferIdx, iui, epsi, tP):
         imod = Module("LocalReadDo%s_I%s" % (tP["tensorChar"],iui))
+        subTileIdx = writer.states.SubTileIdx
 
         tc = tP["tensorChar"]
         if tc == "A":
             writer.states.localReadDoCntA += 1
-            subTileIdx = writer.states.SubTileIdxA
         elif tc == "Metadata":
             writer.states.localReadDoCntMetadata += 1
         else:
             writer.states.localReadDoCntB += 1
-            subTileIdx = writer.states.SubTileIdxB
         tile01           = tP["tile01Idx"]
         instruction      = tP["localReadInstruction"]
         bpr              = 4 # bytes/register
@@ -187,7 +186,7 @@ class LocalReadMFMA(LocalRead):
 
         vectorWidth  = kernel["VectorWidth%s"%tc]
 
-        numSubTiles = kernel["numSubTiles%s"%tc]
+        numSubTiles = kernel["numSubTiles"]
         
         MIWaveGroupShape = [ kernel["MatrixInstM"] * kernel["MatrixInstBM"] * kernel["MIWaveGroup"][0] * kernel["VectorWidthA"], \
                             kernel["MatrixInstN"] * kernel["MatrixInstBN"] * kernel["MIWaveGroup"][1] * kernel["VectorWidthB"]]

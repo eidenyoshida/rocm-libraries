@@ -33,7 +33,6 @@ from ..Component import SIA
 
 from copy import deepcopy
 from typing import Tuple
-import math
 PRECISION = 100
 class SIA3(SIA):
     kernel = {"ScheduleIterAlg": 3}
@@ -55,9 +54,8 @@ class SIA3(SIA):
             numLocalWriteModPerMfma = roundUp(kernel["LocalWritePerMfma"]*PRECISION)
 
         writer.states.numGlobalReadInsPerMfma, writer.states.numLocalWriteModPerMfma = calculateGRPMandLWPM(writer, kernel, numLocalWriteModPerMfma)
-        if not kernel["ForceUnrollSubIter"]:
-            localWriteEndIter = fixLocalWriteEndMfmaIndex(writer, kernel, tensorParametersA, tensorParametersB, \
-                globalReadIncACode, globalReadIncBCode, numMfmaBetweenLWandBarrier, lastLoop)
+        localWriteEndIter = fixLocalWriteEndMfmaIndex(writer, kernel, tensorParametersA, tensorParametersB, \
+            globalReadIncACode, globalReadIncBCode, numMfmaBetweenLWandBarrier, lastLoop)
         numGlobalReadInsPerIter, numLocalWriteModPerIter, numEmptyGlobalReadIncCode = getScheduleParamMfma(writer)
         numLocalWritesPerSched = writer.states.numLocalWriteModPerMfma
         # Schedule global read
@@ -259,11 +257,8 @@ def getLocalWriteMFMAEnd(writer, kernel, tensorParametersA, tensorParametersB):
     # final index definition
     writer.states.numMfmaForNextLoopLR = min(writer.states.numMfmaForNextLoopLR,numMfmaPerIter-1)
     writer.states.syncPlrMfmaIndex = numMfmaPerIter*(kernel["LoopIters"]-writer.states.numItersPLR+1) - writer.states.numMfmaForNextLoopLR - 1 if writer.states.numItersPLR else 0
+    
     if kernel["ForceUnrollSubIter"]:
-        mfmaiter0 =  math.ceil(kernel["MIWaveTile"][0]/2) * math.ceil(kernel["MIWaveTile"][1]/2)
-        mfmaiter1 = math.floor(kernel["MIWaveTile"][0]/2) * math.ceil(kernel["MIWaveTile"][1]/2)
-        mfmaiter2 = math.ceil(kernel["MIWaveTile"][0]/2) * math.floor(kernel["MIWaveTile"][1]/2)
-        writer.states.syncPlrMfmaIndex = (mfmaiter0 + mfmaiter1 + mfmaiter2)
         if ( kernel["UseF32XEmulation"]) :
             writer.states.syncPlrMfmaIndex = writer.states.syncPlrMfmaIndex *3   # TF32
         elif ( kernel["ProblemType"]["DataType"].isComplex()):
@@ -742,8 +737,6 @@ def assignLWSchedIndexSIA3(writer, kernel, numLocalWritesPerSched, localWriteEnd
     if kernel["1LDSBuffer"] or kernel["DirectToLds"]:
         writer.states.sync1LdsMfmaIndex = max(writer.states.lwStartMfmaIndex - 1, 0)
     startIter = writer.states.lwStartMfmaIndex//numMfmaPerIter
-    if kernel["ForceUnrollSubIter"]:
-        startIter = min(1,startIter) # if ForceUnrollSubIter, startIter should be 0 or 1
     assert startIter < localWriteEndIter+1 # startIter should be at or before the endIter
     return startIter
 

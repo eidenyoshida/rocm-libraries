@@ -6783,7 +6783,7 @@ class KernelWriterAssembly(KernelWriter):
       idxInner_start = 0
       idxOuter_stop = kernel["MIWaveTile"][outer]
       idxInner_stop = kernel["MIWaveTile"][inner]
-      numSubTiles = kernel["numSubTilesA"]
+      numSubTiles = kernel["numSubTiles"]
       if numSubTiles > 1:
         outerBy2=(kernel["MIWaveTile"][outer]//numSubTiles)
         innerBy2=(kernel["MIWaveTile"][inner]//numSubTiles)
