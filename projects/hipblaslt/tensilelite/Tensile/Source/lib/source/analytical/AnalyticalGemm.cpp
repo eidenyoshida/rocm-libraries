@@ -789,7 +789,7 @@ namespace TensileLite
             }
 
             //Enable Customized Heuristics.
-            bool enable_heuristics = true;
+            bool enable_heuristics = false;
             size_t active_cu = compute_active_CU(hardware, M, N, batch, MT_M, MT_N);
             if(active_cu < hardware.N_CU && K > 16384 && enable_heuristics) //TODO This is heuristicy
             {
