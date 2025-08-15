@@ -120,6 +120,34 @@ TEST(UniquePtrGeneralTests, TestUniquePtrMoveAsgn)
     }  
 }
 
+TEST(UniquePtrGeneralTests, TestUniquePtrMoveAsgnArray)
+{
+    SCOPED_TRACE(testing::Message() << "with device_id= " << test::set_device_from_ctest());
+
+    // Move assignment for arrays
+    {
+        void* raw_addr = nullptr;
+
+        thrust::unique_ptr<int[]> p1 = thrust::make_unique<int[]>(5);
+        int* raw_p1 = p1.get_raw();;
+        {
+            thrust::unique_ptr<int[]> p2 = thrust::make_unique<int[]>(10);
+            ASSERT_NE(p1.get_raw(), nullptr);
+            ASSERT_NE(p2.get_raw(), nullptr);
+
+            p2 = std::move(p1);
+
+            ASSERT_EQ(p2.get_raw(), raw_p1);
+            ASSERT_EQ(p1.get_raw(), nullptr);
+
+            raw_addr = static_cast<void*>(p2.get_raw());
+        }
+        size_t dummy = 0;
+        hipError_t st = hipMemPtrGetInfo(raw_addr, &dummy);
+        ASSERT_EQ(st, hipErrorInvalidValue);
+    }
+}
+
 TEST(UniquePtrGeneralTests, TestUnqiuePtrSelfMoveAsgn)
 {
     SCOPED_TRACE(testing::Message() << "with device_id= " << test::set_device_from_ctest());
@@ -127,6 +155,19 @@ TEST(UniquePtrGeneralTests, TestUnqiuePtrSelfMoveAsgn)
     // Self-move for single object
     {
         thrust::unique_ptr<int> p = thrust::make_unique<int>(1);
+        int* raw_p = p.get_raw();
+        p = std::move(p);
+        ASSERT_EQ(p.get_raw(), raw_p);
+    }
+}
+
+TEST(UniquePtrGeneralTests, TestUnqiuePtrSelfMoveAsgnArray)
+{
+    SCOPED_TRACE(testing::Message() << "with device_id= " << test::set_device_from_ctest());
+
+    // Self-move for array
+    {   
+        thrust::unique_ptr<int[]> p = thrust::make_unique<int[]>(5);
         int* raw_p = p.get_raw();
         p = std::move(p);
         ASSERT_EQ(p.get_raw(), raw_p);
