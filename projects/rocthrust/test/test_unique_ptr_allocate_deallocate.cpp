@@ -119,6 +119,43 @@ TEST(UniquePtrAllocDeallocTests, TestUniquePtrCmp)
     }
 }
 
+TEST(UniquePtrAllocDeallocTests, TestUniquePtrCmpArray)
+{
+    SCOPED_TRACE(testing::Message() << "with device_id= " << test::set_device_from_ctest());
+
+    // Pointers of same array type
+    {
+        thrust::unique_ptr<int[]> p1 = thrust::make_unique<int[]>(10);
+        thrust::unique_ptr<int[]> p2 = thrust::make_unique<int[]>(10);
+
+        int* ptr1 = p1.get_raw();
+        int* ptr2 = p2.get_raw();
+
+        ASSERT_EQ((p1 == p2), (static_cast<void*>(ptr1) == static_cast<void*>(ptr2)));
+        ASSERT_EQ((p1 != p2), (static_cast<void*>(ptr1) != static_cast<void*>(ptr2)));
+        ASSERT_EQ((p1 < p2), (static_cast<void*>(ptr1) < static_cast<void*>(ptr2)));
+        ASSERT_EQ((p1 <= p2), (static_cast<void*>(ptr1) <= static_cast<void*>(ptr2)));
+        ASSERT_EQ((p1 > p2), (static_cast<void*>(ptr1) > static_cast<void*>(ptr2)));
+        ASSERT_EQ((p1 >= p2), (static_cast<void*>(ptr1) >= static_cast<void*>(ptr2)));
+    }
+
+    // Pointers of different array type
+    {
+        thrust::unique_ptr<int[]>   p1 = thrust::make_unique<int[]>(10);
+        thrust::unique_ptr<float[]> p2 = thrust::make_unique<float[]>(10);
+
+        int*   ptr1 = p1.get_raw();
+        float* ptr2 = p2.get_raw();
+
+        ASSERT_EQ((p1 == p2), (static_cast<void*>(ptr1) == static_cast<void*>(ptr2)));
+        ASSERT_EQ((p1 != p2), (static_cast<void*>(ptr1) != static_cast<void*>(ptr2)));
+        ASSERT_EQ((p1 < p2), (static_cast<void*>(ptr1) < static_cast<void*>(ptr2)));
+        ASSERT_EQ((p1 <= p2), (static_cast<void*>(ptr1) <= static_cast<void*>(ptr2)));
+        ASSERT_EQ((p1 > p2), (static_cast<void*>(ptr1) > static_cast<void*>(ptr2)));
+        ASSERT_EQ((p1 >= p2), (static_cast<void*>(ptr1) >= static_cast<void*>(ptr2)));
+    }
+}
+
 TEST(UniquePtrAllocDeallocTests, TestUniquePtrNullptr)
 {
     SCOPED_TRACE(testing::Message() << "with device_id= " << test::set_device_from_ctest());
