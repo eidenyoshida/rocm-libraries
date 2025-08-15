@@ -194,6 +194,32 @@ TEST(UniquePtrGeneralTests, TestUniquePtrNullAsgn)
     }
 }
 
+TEST(UniquePtrGeneralTests, TestUniquePtrNullAsgnArray)
+{
+    SCOPED_TRACE(testing::Message() << "with device_id= " << test::set_device_from_ctest());
+    
+    // NULL assignment for array
+    void* raw_addr = nullptr;
+    size_t sz = 0;
+    {
+        thrust::unique_ptr<int[]> p = thrust::make_unique<int[]>(5);
+        ASSERT_NE(p, nullptr);
+
+        hipError_t st = hipMemPtrGetInfo(static_cast<void*>(p.get_raw()), &sz);
+        ASSERT_EQ(st, hipSuccess);
+        ASSERT_GE(sz, 5 * sizeof(int));
+        raw_addr = static_cast<void*>(p.get_raw());
+
+        p = nullptr;
+
+        ASSERT_EQ(p, nullptr);
+        
+        size_t dummy = 0;
+        st = hipMemPtrGetInfo(raw_addr, &dummy);
+        ASSERT_EQ(st, hipErrorInvalidValue);
+    }
+}
+
 TEST(UniquePtrGeneralTests, TestUniquePtrDefaultCtor)
 {
     SCOPED_TRACE(testing::Message() << "with device_id= " << test::set_device_from_ctest());
