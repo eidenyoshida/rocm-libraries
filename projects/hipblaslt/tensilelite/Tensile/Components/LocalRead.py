@@ -187,7 +187,6 @@ class LocalReadMFMA(LocalRead):
         vectorWidth  = kernel["VectorWidth%s"%tc]
 
         numSubTiles = kernel["numSubTiles"]
-        
         MIWaveGroupShape = [ kernel["MatrixInstM"] * kernel["MatrixInstBM"] * kernel["MIWaveGroup"][0] * kernel["VectorWidthA"], \
                             kernel["MatrixInstN"] * kernel["MatrixInstBN"] * kernel["MIWaveGroup"][1] * kernel["VectorWidthB"]]
 
@@ -250,6 +249,9 @@ class LocalReadMFMA(LocalRead):
 
         maxLDSConstOffset = writer.states.regCaps["maxLDSConstOffset"]
         valufIdx = 0
+        eIdxCnt = numReadsPerVector//numSubTiles
+        eIdxStart = subTileIdx * (numReadsPerVector//numSubTiles)
+        valufIdx = eIdxStart * blockWidth *numReadsPerUnroll
         if enableLDSTr:
             numberMTilesPerWave = kernel["MIWaveTile"][tile01]
             highBits = 0
@@ -271,49 +273,11 @@ class LocalReadMFMA(LocalRead):
                 ds = DSModifiers(na=1, offset=offset)
                 localReadCode.add(LocalReadX(dst=destVgpr, src=srcAddr, ds=ds, comment=comment))
         else:
-            eIdxCnt = numReadsPerVector
-            eIdxStart = 0
-            vIdxStart = 0
-            vIdxCnt = numVectorsPerTile
-            valufIdx = 0
-            if numVectorsPerTile == 1:
-                eIdxCnt = numReadsPerVector//numSubTiles
-                eIdxStart = subTileIdx * (numReadsPerVector//numSubTiles)
-            else:
-                vIdxStart = subTileIdx * (numVectorsPerTile//numSubTiles)
-                vIdxCnt = numVectorsPerTile//numSubTiles
-
-            # Calculate total number of local read instructions needed
-            totalLocalReads = numVectorsPerTile * numReadsPerVector
-            localReadsPerSubTile = totalLocalReads // numSubTiles
-            remainderReads = totalLocalReads % numSubTiles
-            
-            # Adjust for this subTile
-            if subTileIdx < remainderReads:
-                localReadsForThisSubTile = localReadsPerSubTile + 1
-            else:
-                localReadsForThisSubTile = localReadsPerSubTile
-            
-            # Calculate starting position for this subTile
-            startReadIdx = subTileIdx * localReadsPerSubTile + min(subTileIdx, remainderReads)
-            
-            # Use while loop to generate the correct number of local read instructions
-            readCount = 0
-            while readCount < localReadsForThisSubTile:
-                    # Calculate current vIdx and eIdx from the global read index
-                    globalReadIdx = startReadIdx + readCount
-                    vIdx = globalReadIdx // numReadsPerVector
-                    eIdx = globalReadIdx % numReadsPerVector
-                    # Calculate valufIdx based on current vIdx and eIdx
-                    if numVectorsPerTile == 1:
-                        valufIdx = eIdx * blockWidth * numReadsPerUnroll
-                    else:
-                        valufIdx = (vIdx * numReadsPerVector + eIdx) * blockWidth * numReadsPerUnroll
-
+            for vIdx in range(0, numVectorsPerTile):
+                for eIdx in range(eIdxStart, (eIdxStart + eIdxCnt)):
                     valuiIdx = int(valufIdx)
                     baseValuiIdx = valuiIdx
                     localReadCode = imod.add(Module("LocalRead%s Valu%u"%(tc,valuiIdx)))
-                    readCount += 1
                     if needPack or numSplitMetadata:
                         packCode = pack.add(Module("packCode"))
 

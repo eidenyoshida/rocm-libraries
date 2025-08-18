@@ -1754,7 +1754,7 @@ class KernelWriter(metaclass=abc.ABCMeta):
           if ((iteration < numReadsIterB and not dataAtIterB < max(dataAtIterA,dataAtIterB)) or numPrefetchIter) and (not kernel["DirectToVgprB"]):
             localReads -= self.states.numReadsPerIterB
           localReads += localReadsWaitcnt
-          if iteration == 0 and kernel["UnrollMajorLDSB"] and not (kernel["ForceUnrollSubIter"] or (kernel["ProblemType"]["DataTypeB"].isAnyFloat8() and kernel["ConvertAfterDS"])):
+          if iteration == 0 and kernel["UnrollMajorLDSB"] and not (kernel["ProblemType"]["DataTypeB"].isAnyFloat8() and kernel["ConvertAfterDS"]):
             # We issued LR with A[0]->B[0]->A[1:]->B[1:] order.
             # We need to calculate how many B[N:] needed by 1st mfma.
             # If not UnrollMajorLDSB, we have packB which will be issued ahead.
