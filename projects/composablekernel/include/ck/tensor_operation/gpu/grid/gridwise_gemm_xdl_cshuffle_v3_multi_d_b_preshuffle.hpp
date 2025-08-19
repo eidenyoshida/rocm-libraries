@@ -174,11 +174,11 @@ struct GridwiseGemmMultiD_xdl_cshuffle_v3_b_preshuffle
             : false;
     static constexpr auto is_scale_mfma = false;
     static constexpr auto mfma          = MfmaSelector<ComputeTypeA,
-                                                       MPerXdl,
-                                                       NPerXdl,
-                                                       ComputeTypeA,
-                                                       is_single_rate_mfma,
-                                                       is_scale_mfma>{};
+                                              MPerXdl,
+                                              NPerXdl,
+                                              ComputeTypeA,
+                                              is_single_rate_mfma,
+                                              is_scale_mfma>{};
     static constexpr index_t KPack      = math::max(lcm_AK1_BK1, mfma.selected_mfma.k_per_blk);
     static constexpr index_t KGroup     = []() {
         if constexpr(is_same_v<remove_cvref_t<BDataType>, f8_t>)
@@ -599,11 +599,20 @@ struct GridwiseGemmMultiD_xdl_cshuffle_v3_b_preshuffle
 
         __host__ void Print() const
         {
-            std::cout << "problem {" << "M:" << M << ", " << "N:" << N << ", " << "K:" << K << ", "
-                      << "SA:" << StrideA << ", " << "SB:" << StrideB << ", " << "SC:" << StrideC
-                      << ", " << "MP:" << MPadded << ", " << "NP:" << NPadded << ", "
-                      << "KRead:" << KRead << ", " << "KP:" << KPadded << ", " << "AK0:" << AK0
-                      << ", " << "BK0:" << BK0 << ", " << "MBlock: " << MBlock << ", "
+            std::cout << "problem {"
+                      << "M:" << M << ", "
+                      << "N:" << N << ", "
+                      << "K:" << K << ", "
+                      << "SA:" << StrideA << ", "
+                      << "SB:" << StrideB << ", "
+                      << "SC:" << StrideC << ", "
+                      << "MP:" << MPadded << ", "
+                      << "NP:" << NPadded << ", "
+                      << "KRead:" << KRead << ", "
+                      << "KP:" << KPadded << ", "
+                      << "AK0:" << AK0 << ", "
+                      << "BK0:" << BK0 << ", "
+                      << "MBlock: " << MBlock << ", "
                       << "NBlock: " << NBlock << "}" << std::endl;
         }
 
@@ -1405,16 +1414,18 @@ struct GridwiseGemmMultiD_xdl_cshuffle_v3_b_preshuffle
             // tuple of reference to C/Ds tensor descriptors
             const auto c_ds_desc_refs = concat_tuple_of_reference(
                 tie(c_shuffle_block_desc_mblock_mperblock_nblock_nperblock),
-                generate_tie([&](auto i) -> const auto& // return type should be reference
-                             { return ds_grid_desc_mblock_mperblock_nblock_nperblock[i]; },
-                             Number<NumDTensor>{}));
+                generate_tie(
+                    [&](auto i) -> const auto& // return type should be reference
+                    { return ds_grid_desc_mblock_mperblock_nblock_nperblock[i]; },
+                    Number<NumDTensor>{}));
 
             // tuple of reference to C/Ds tensor descriptors
             const auto c_ds_buf_refs = concat_tuple_of_reference(
                 tie(c_shuffle_block_buf),
-                generate_tie([&](auto i) -> const auto& // return type should be reference
-                             { return ds_grid_buf[i]; },
-                             Number<NumDTensor>{}));
+                generate_tie(
+                    [&](auto i) -> const auto& // return type should be reference
+                    { return ds_grid_buf[i]; },
+                    Number<NumDTensor>{}));
 
             // tuple of starting index of C/Ds blockwise copy
             const auto idx_c_ds_block_begin = container_concat(
@@ -1580,15 +1591,34 @@ struct GridwiseGemmMultiD_xdl_cshuffle_v3_b_preshuffle
         ignore                           = b_element_op;
         const auto a_grid_desc_ak0_m_ak1 = MakeAGridDescriptor_AK0_M_AK1(
             problem.M, problem.MPadded, problem.K, problem.KPadded, problem.StrideA, problem.AK0);
+        // if(threadIdx.x == 0 && threadIdx.y == 0 && blockIdx.x == 0 && blockIdx.y == 0)
+        // {
+        //     printf("a_grid_desc_ak0_m_ak1: ");
+        //     a_grid_desc_ak0_m_ak1.Print();
+        //     printf("| space: %ld\n", a_grid_desc_ak0_m_ak1.GetElementSpaceSize());
+        // }
 
         const auto b_grid_desc_bpreshuffled =
             MakeBGridDescriptor_Preshuffled(problem.BN0Shuffled, problem.BK0Shuffled);
         const auto c_grid_desc_m_n = MakeCGridDescriptor_M_N<CLayout>(
             problem.M, problem.MPadded, problem.N, problem.NPadded, problem.StrideC);
+        // if(threadIdx.x == 0 && threadIdx.y == 0 && blockIdx.x == 0 && blockIdx.y == 0)
+        // {
+        //     printf("b_grid_desc_bpreshuffle: ");
+        //     b_grid_desc_bpreshuffled.Print();
+        //     printf("| space: %ld\n", b_grid_desc_bpreshuffled.GetElementSpaceSize());
+        // }
 
         const auto c_grid_desc_mblock_mperblock_nblock_nperblock =
             MakeCGridDescriptor_MBlock_MPerBlock_NBlock_NPerBlock(
                 c_grid_desc_m_n, problem.MBlock, problem.NBlock);
+        // if(threadIdx.x == 0 && threadIdx.y == 0 && blockIdx.x == 0 && blockIdx.y == 0)
+        // {
+        //     printf("c_grid_desc_mblock_mperblock_nblock_nperblock: ");
+        //     c_grid_desc_mblock_mperblock_nblock_nperblock.Print();
+        //     printf("| space: %ld\n",
+        //            c_grid_desc_mblock_mperblock_nblock_nperblock.GetElementSpaceSize());
+        // }
 
         const auto a_grid_buf = make_dynamic_buffer<AddressSpaceEnum::Global>(
             p_a_grid, a_grid_desc_ak0_m_ak1.GetElementSpaceSize());
@@ -1620,9 +1650,21 @@ struct GridwiseGemmMultiD_xdl_cshuffle_v3_b_preshuffle
 
         // A matrix in LDS memory, dst of blockwise copy
         constexpr auto a_block_desc_ak0_m_ak1 = GetABlockDescriptor_AK0PerBlock_MPerBlock_AK1();
+        // if(threadIdx.x == 0 && threadIdx.y == 0 && blockIdx.x == 0 && blockIdx.y == 0)
+        // {
+        //     printf("a_block_desc_ak0_m_ak1: ");
+        //     a_block_desc_ak0_m_ak1.Print();
+        //     printf("| space: %ld\n", a_block_desc_ak0_m_ak1.GetElementSpaceSize()());
+        // }
 
         // B matrix in LDS memory, dst of blockwise copy
         constexpr auto b_block_desc_bk0_n_bk1 = GetBBlockDescriptor_BK0PerBlock_NPerBlock_BK1();
+        // if(threadIdx.x == 0 && threadIdx.y == 0 && blockIdx.x == 0 && blockIdx.y == 0)
+        // {
+        //     printf("b_block_desc_bk0_n_bk1: ");
+        //     b_block_desc_bk0_n_bk1.Print();
+        //     printf("| space: %ld\n", b_block_desc_bk0_n_bk1.GetElementSpaceSize()());
+        // }
 
         // A matrix blockwise copy
         auto a_blockwise_copy =
@@ -1844,16 +1886,18 @@ struct GridwiseGemmMultiD_xdl_cshuffle_v3_b_preshuffle
             // tuple of reference to C/Ds tensor descriptors
             const auto c_ds_desc_refs = concat_tuple_of_reference(
                 tie(c_shuffle_block_desc_mblock_mperblock_nblock_nperblock),
-                generate_tie([&](auto i) -> const auto& // return type should be reference
-                             { return ds_grid_desc_mblock_mperblock_nblock_nperblock[i]; },
-                             Number<NumDTensor>{}));
+                generate_tie(
+                    [&](auto i) -> const auto& // return type should be reference
+                    { return ds_grid_desc_mblock_mperblock_nblock_nperblock[i]; },
+                    Number<NumDTensor>{}));
 
             // tuple of reference to C/Ds tensor descriptors
             const auto c_ds_buf_refs = concat_tuple_of_reference(
                 tie(c_shuffle_block_buf),
-                generate_tie([&](auto i) -> const auto& // return type should be reference
-                             { return ds_grid_buf[i]; },
-                             Number<NumDTensor>{}));
+                generate_tie(
+                    [&](auto i) -> const auto& // return type should be reference
+                    { return ds_grid_buf[i]; },
+                    Number<NumDTensor>{}));
 
             // tuple of starting index of C/Ds blockwise copy
             const auto idx_c_ds_block_begin = container_concat(

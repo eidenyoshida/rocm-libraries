@@ -193,7 +193,7 @@ struct DeviceGemmMultiD_Xdl_CShuffle_V3_BPreshuffle
                     });
                     ck::utility::RotatingMemWrapperMultiD<Argument, DsDataType> rotating_mem(
                         arg_, stream_config.rotating_count, size_a_buffer, size_b_buffer, DsSize);
-                    rotating_mem.Print();
+                    // rotating_mem.Print();
 
                     auto run_flush_cache = [&]() {
                         // flush icache
@@ -326,8 +326,10 @@ struct DeviceGemmMultiD_Xdl_CShuffle_V3_BPreshuffle
                     }
                     else
                     {
+                        // std::cout << "I'm here: K_split: " << K_split << std::endl;
                         if(GridwiseGemm::CalculateKBlockLoopTailNum(K_split) == TailNumber::Odd)
                         {
+                            // std::cout << "I'm here: TailNumber::Odd" << std::endl;
                             const auto kernel =
                                 kernel_gemm_xdl_cshuffle_v3_multi_d_b_preshuffle_2lds<
                                     GridwiseGemm,
@@ -339,6 +341,7 @@ struct DeviceGemmMultiD_Xdl_CShuffle_V3_BPreshuffle
                         }
                         else
                         {
+                            // std::cout << "I'm here: TailNumber::Even" << std::endl;
                             const auto kernel =
                                 kernel_gemm_xdl_cshuffle_v3_multi_d_b_preshuffle_2lds<
                                     GridwiseGemm,

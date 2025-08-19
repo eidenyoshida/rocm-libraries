@@ -2037,7 +2037,7 @@ struct Xor
 
         //
         printf("up_lengths_: ");
-        print(up_lengths_);
+        print_multi_index(up_lengths_);
         printf(", ");
 
         printf("}");

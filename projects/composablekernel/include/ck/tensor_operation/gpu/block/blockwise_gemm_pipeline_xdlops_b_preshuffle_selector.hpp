@@ -198,7 +198,7 @@ constexpr auto BlockGemmBPreshufflePipeline_Selector()
             }
             else
             {
-
+                // static_assert(false, "wanna see type name");
                 return BlockwiseGemmXdlops_pipeline_bpreshuffle_v3<BlkGemmPipeSche,
                                                                    BlockSize,
                                                                    ADataType,

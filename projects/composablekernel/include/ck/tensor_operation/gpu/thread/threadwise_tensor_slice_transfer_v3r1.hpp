@@ -131,8 +131,13 @@ struct ThreadwiseTensorSliceTransfer_v3r1
         // TODO: don't use lambda_scalar_per_access
         constexpr auto src_scalar_per_access = generate_sequence(
             detail::lambda_scalar_per_access<SrcVectorDim, SrcScalarPerVector_>{}, Number<nDim>{});
+        // pntS<Number<SrcVectorDim>>{};
+        // pntS<Number<SrcScalarPerVector_>>{};
+        // pntS<decltype(src_scalar_per_access)>{};
 
         constexpr auto src_access_lengths = SliceLengths{} / src_scalar_per_access;
+        // pntS<SliceLengths>{};
+        // pntS<decltype(src_access_lengths)>{};
 
         static_assert(SliceLengths::At(SrcVectorDim) % (SrcScalarPerVector_) == 0,
                       "SliceLengths[SrcVectorDim] must be divisible by SrcScalarPerVector");
@@ -141,6 +146,8 @@ struct ThreadwiseTensorSliceTransfer_v3r1
 
         constexpr auto ordered_src_access_lengths =
             container_reorder_given_new2old(src_access_lengths, src_dim_access_order);
+        // pntS<decltype(src_dim_access_order)>{};
+        // pntS<decltype(ordered_src_access_lengths)>{};
 
         // make forward steps
         const auto src_forward_steps = generate_tuple(
@@ -167,6 +174,7 @@ struct ThreadwiseTensorSliceTransfer_v3r1
                 return make_tensor_coordinate_step(src_desc, backward_step_idx);
             },
             Number<nDim>{});
+        // pntS<decltype(ordered_src_access_lengths)>{};
 
         // loop over tensor and copy
         static_ford<decltype(ordered_src_access_lengths)>{}([&](auto ordered_src_access_idx) {
@@ -188,6 +196,8 @@ struct ThreadwiseTensorSliceTransfer_v3r1
 
                 return forward_sweep_;
             }();
+            // ordered_src_access_idx.Print();
+            // printf("-%d %d %d\n", forward_sweep[I0], forward_sweep[I1], forward_sweep[I2]);
 
             // calculate src data index
             constexpr auto src_data_idx = [&]() {
@@ -202,6 +212,9 @@ struct ThreadwiseTensorSliceTransfer_v3r1
                 return container_reorder_given_old2new(ordered_idx, src_dim_access_order) *
                        src_scalar_per_access;
             }();
+            // ordered_src_access_lengths.Print();
+            // printf("=%d %d %d\n", src_data_idx[I0], src_data_idx[I1], src_data_idx[I2]);
+            // printf("\n");
 
             constexpr auto src_data_idx_seq = generate_sequence_v2(
                 [&](auto i) { return Number<src_data_idx[i]>{}; }, Number<src_data_idx.Size()>{});
@@ -300,6 +313,7 @@ struct ThreadwiseTensorSliceTransfer_v3r1
                         src_element_op_(
                             op_r_v.template AsType<dst_elem_op_vec_t>()(idx + LoadOffset),
                             src_vector.template AsType<src_elem_op_vec_t>()[idx]);
+                        // printf("%d\n", idx.value);
                     });
                 });
 

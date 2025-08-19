@@ -137,23 +137,112 @@ static constexpr auto GemmSpec = ck::tensor_operation::device::GemmSpecializatio
 
 using DeviceOpInstance = ck::tensor_operation::device::DeviceGemmMultiD_Xdl_CShuffle_V3_BPreshuffle
     // clang-format off
-    <   Row, Col, DsLayout, ELayout, A0DataType, B0DataType, DsDataType, EDataType, AccDataType, CShuffleDataType,
-        AElementOp,  BElementOp, CDEElementOp, GemmSpec, 256,
-        256,   256,    128,
-        16,   16,
-        16,   16,
-        16,    4,
-        S<8, 32, 1>, S<1, 0, 2>, S<1, 0, 2>, 2, 16, 16, 0,
-        S<8, 32, 1>, S<1, 0, 2>, S<1, 0, 2>, 2, 16, 16, 0,
-        2,    1,   S<1, 32, 1, 8>, S<8, 8, 1>,
-        ck::BlockGemmPipelineScheduler::Intrawave, ck::BlockGemmPipelineVersion::v3, FP8>;
+    // <Row, Col, DsLayout, ELayout, A0DataType, B0DataType, DsDataType, EDataType, AccDataType, CShuffleDataType,
+    // AElementOp,  BElementOp, CDEElementOp, GemmSpec, 256,
+    // 256,   256,    128,
+    // 16,   16,
+    // 16,   16,
+    // 16,    4,
+    // S<8, 32, 1>, S<1, 0, 2>, S<1, 0, 2>, 2, 16, 16, 0,
+    // S<8, 32, 1>, S<1, 0, 2>, S<1, 0, 2>, 2, 16, 16, 0,
+    // 2,    1,   S<1, 32, 1, 8>, S<8, 8, 1>,
+    // ck::BlockGemmPipelineScheduler::Intrawave, ck::BlockGemmPipelineVersion::v3, FP8>;
+
+    <Row, Col, DsLayout, ELayout,
+    A0DataType, B0DataType, DsDataType, EDataType, AccDataType, CShuffleDataType,
+    AElementOp, BElementOp, CDEElementOp, GemmSpec,
+
+    // 0.00851206
+    // BlockSize
+       256,
+    // MPerBlock | NPerBlock | KPerBlock
+       64,         64,         256,
+    // AK1 | BK1
+       16,   16,
+    // MPerXDL | NPerXDL
+       16,       16,
+    // MXdlPerWave | NXdlPerWave
+       4,            1,
+    // ABlockTransferThreadClusterLengths_AK0_M_AK1 | ABlockTransferThreadClusterArrangeOrder | ABlockTransferSrcAccessOrder
+       S<16, 16, 1>,                                  S<1, 0, 2>,                               S<1, 0, 2>,
+    // ABlockTransferSrcVectorDim | ABlockTransferSrcScalarPerVector | ABlockTransferDstScalarPerVector_AK1 | ABlockLdsExtraM
+       2,                           16,                                16,                                    0, 
+    // BBlockTransferThreadClusterLengths_BK0_N_BK1 | BBlockTransferThreadClusterArrangeOrder | BBlockTransferSrcAccessOrder,
+       S<16, 16, 1>,                                  S<1, 0, 2>,                               S<1, 0, 2>,
+    // BBlockTransferSrcVectorDim | BBlockTransferSrcScalarPerVector | BBlockTransferDstScalarPerVector_BK1 | BBlockLdsExtraN
+       2,                           16,                                16,                                    0,
+    // CShuffleMXdlPerWavePerShuffle | CShuffleNXdlPerWavePerShuffle
+       2,                              1,
+    // CShuffleBlockTransferClusterLengths_MBlock_MPerBlock_NBlock_NPerBlock | CDEShuffleBlockTransferScalarPerVectors
+       S<1, 32, 1, 8>,                                                         S<8, 8, 1>,
+    ck::BlockGemmPipelineScheduler::Intrawave, ck::BlockGemmPipelineVersion::v3,
+
+    // // from device_gemm_multiply_multiply_wp_xdl_f8_f8_f16_mk_mfma_mn.hpp
+    // // 0.0131355
+    // 256,    64,    128,   128,  16,  16,  32,   32,    2,    1,     S<8, 32, 1>,     S<1, 0, 2>,    S<1, 0, 2>,               2,             16,             16,          0,    S<8, 32, 1>,     S<1, 0, 2>,    S<1, 0, 2>,               2,             16,             16,          0,          1,           1,                   S<1, 32, 1, 8>,     S<8, 8, 1>,  ck::BlockGemmPipelineScheduler::Intrawave, ck::BlockGemmPipelineVersion::v2,
+    // // 0.010373
+    // 256,    32,    128,   128,  16,  16,  32,   32,    1,    1,     S<8, 32, 1>,     S<1, 0, 2>,    S<1, 0, 2>,               2,             16,             16,          0,    S<8, 32, 1>,     S<1, 0, 2>,    S<1, 0, 2>,               2,             16,             16,          0,          1,           1,                   S<1, 32, 1, 8>,     S<8, 8, 1>,  ck::BlockGemmPipelineScheduler::Intrawave, ck::BlockGemmPipelineVersion::v1,
+    FP8>;
 // clang-format on
+
+// expected launch with 1 block & 1 wave
+template <typename DeviceOpInstance>
+__global__ void test_entry([[maybe_unused]] typename DeviceOpInstance::Argument args)
+{
+    using namespace ck;
+    using GridwiseGemm = typename DeviceOpInstance::GridwiseGemm;
+
+    printf("shr mem usage: %d\n", GridwiseGemm::GetSharedMemoryNumberOfByte());
+
+    // MakeAGridDescriptor_AK0_M_AK1
+    [[maybe_unused]] static constexpr auto I0 = Number<0>{};
+    [[maybe_unused]] static constexpr auto I1 = Number<1>{};
+    [[maybe_unused]] static constexpr auto I2 = Number<2>{};
+    [[maybe_unused]] static constexpr auto I3 = Number<3>{};
+    [[maybe_unused]] static constexpr auto I4 = Number<4>{};
+    [[maybe_unused]] static constexpr auto I5 = Number<5>{};
+    [[maybe_unused]] static constexpr auto I6 = Number<6>{};
+    [[maybe_unused]] static constexpr auto I7 = Number<7>{};
+
+    [[maybe_unused]] auto M        = args.M;
+    [[maybe_unused]] auto N        = args.N;
+    [[maybe_unused]] auto K        = args.K;
+    [[maybe_unused]] auto MPadded  = args.MPadded;
+    [[maybe_unused]] auto KPadded  = args.KPadded;
+    [[maybe_unused]] auto StrideA  = args.StrideA;
+    [[maybe_unused]] auto AK0      = args.AK0;
+    [[maybe_unused]] auto AK1Value = 16;
+
+    auto a_grid_desc_mraw_kraw =
+        make_naive_tensor_descriptor(make_tuple(M, K), make_tuple(StrideA, I1));
+
+    const auto a_grid_desc_ak0_m_ak1 =
+        transform_tensor_descriptor(a_grid_desc_mraw_kraw,
+                                    make_tuple(make_unmerge_transform(make_tuple(AK0, AK1Value)),
+                                               make_pass_through_transform(M)),
+                                    make_tuple(Sequence<1>{}, Sequence<0>{}),
+                                    make_tuple(Sequence<0, 2>{}, Sequence<1>{}));
+
+    // a_grid_desc_mraw_kraw.Print();
+    // printf("\n");
+    a_grid_desc_ak0_m_ak1.Print();
+    printf("\n");
+
+    printf("id: %d\n", a_grid_desc_ak0_m_ak1.CalculateOffset(make_multi_index(0, 0, 1)));
+    printf("id: %d\n", a_grid_desc_ak0_m_ak1.CalculateOffset(make_multi_index(0, 1, 0)));
+    printf("id: %d\n", a_grid_desc_ak0_m_ak1.CalculateOffset(make_multi_index(1, 0, 0)));
+
+    // printf("a_grid_desc_mraw_kraw top: %d %d %d\n",
+    //        a_grid_desc_mraw_kraw.get_length(I0),
+    //        a_grid_desc_mraw_kraw.get_length(I1),
+    //        a_grid_desc_mraw_kraw.get_length(I2));
+}
 
 int main(int argc, char* argv[])
 {
-    bool do_verification = true;
-    int init_method      = 1;
-    bool time_kernel     = false;
+    [[maybe_unused]] bool do_verification = true;
+    [[maybe_unused]] int init_method      = 1;
+    [[maybe_unused]] bool time_kernel     = false;
 
     // GEMM shape
     ck::index_t M = 3840;
@@ -167,8 +256,8 @@ int main(int argc, char* argv[])
 
     ck::index_t KBatch = 1;
 
-    ck::index_t Warmup = 50;
-    ck::index_t Repeat = 50;
+    [[maybe_unused]] ck::index_t Warmup = 50;
+    [[maybe_unused]] ck::index_t Repeat = 50;
 
     if(argc == 1)
     {
@@ -256,6 +345,7 @@ int main(int argc, char* argv[])
     std::cout << "d1_m_n: " << d1_m_n.mDesc << std::endl;
     std::cout << "d0_m_n: " << d0_m_n.mDesc << std::endl;
     std::cout << "e_m_n: " << e_m_n_host_result.mDesc << std::endl;
+    std::cout << "kbatch " << KBatch << std::endl;
 
     switch(init_method)
     {
@@ -332,6 +422,8 @@ int main(int argc, char* argv[])
             "not support this GEMM problem");
     }
 
+    // test_entry<DeviceOpInstance><<<dim3(1), dim3(1)>>>(argument);
+
     size_t total_size =
         (M * K * sizeof(A0DataType) + N * K * sizeof(B0DataType) + M * sizeof(D0DataType) +
          N * sizeof(D1DataType) + M * N * sizeof(EDataType));
@@ -340,6 +432,8 @@ int main(int argc, char* argv[])
 
     float ave_time = invoker.Run(
         argument, StreamConfig{nullptr, time_kernel, 0, Warmup, Repeat, true, rotate_buf_num});
+    // float ave_time =
+    //     invoker.Run(argument, StreamConfig{nullptr, time_kernel, 0, 1, 0, true, rotate_buf_num});
 
     std::size_t flop = std::size_t(2) * M * N * K;
     std::size_t num_btype =
@@ -349,47 +443,48 @@ int main(int argc, char* argv[])
 
     float gb_per_sec = num_btype / 1.E6 / ave_time;
 
-    std::cout << "Perf: " << ave_time << " ms, " << tflops << " TFlops, " << gb_per_sec << " GB/s"
-              << std::endl;
+    // clang-format off
+    std::cout << "Perf: " << ave_time << " ms, " << tflops << " TFlops, " << gb_per_sec
+              << " GB/s" << std::endl;
+    // clang-format on
 
-    if(do_verification)
-    {
-        invoker.Run(argument, StreamConfig{nullptr, false});
+    // if(do_verification)
+    // {
+    //     invoker.Run(argument, StreamConfig{nullptr, false});
 
-        e_device_buf.FromDevice(e_m_n_device_result.mData.data());
+    //     e_device_buf.FromDevice(e_m_n_device_result.mData.data());
 
-        Tensor<CShuffleDataType> c_m_n({M, N});
+    //     Tensor<CShuffleDataType> c_m_n({M, N});
 
-        using ReferenceGemmInstance = ck::tensor_operation::host::ReferenceGemm<A0DataType,
-                                                                                B0DataType,
-                                                                                CShuffleDataType,
-                                                                                AccDataType,
-                                                                                PassThrough,
-                                                                                PassThrough,
-                                                                                PassThrough>;
-        auto ref_gemm               = ReferenceGemmInstance{};
-        auto ref_invoker            = ref_gemm.MakeInvoker();
+    //     using ReferenceGemmInstance = ck::tensor_operation::host::ReferenceGemm<A0DataType,
+    //                                                                             B0DataType,
+    //                                                                             CShuffleDataType,
+    //                                                                             AccDataType,
+    //                                                                             PassThrough,
+    //                                                                             PassThrough,
+    //                                                                             PassThrough>;
+    //     auto ref_gemm               = ReferenceGemmInstance{};
+    //     auto ref_invoker            = ref_gemm.MakeInvoker();
 
-        auto ref_argument = ref_gemm.MakeArgument(
-            a0_m_k, b0_k_n, c_m_n, PassThrough{}, PassThrough{}, PassThrough{});
+    //     auto ref_argument = ref_gemm.MakeArgument(
+    //         a0_m_k, b0_k_n, c_m_n, PassThrough{}, PassThrough{}, PassThrough{});
 
-        ref_invoker.Run(ref_argument);
+    //     ref_invoker.Run(ref_argument);
 
-        for(int m = 0; m < M; ++m)
-        {
-            for(int n = 0; n < N; ++n)
-            {
-                cde_element_op(e_m_n_host_result(m, n), c_m_n(m, n), d0_m_n(m, n), d1_m_n(m, n));
-            }
-        }
+    //     for(int m = 0; m < M; ++m)
+    //     {
+    //         for(int n = 0; n < N; ++n)
+    //         {
+    //             cde_element_op(e_m_n_host_result(m, n), c_m_n(m, n), d0_m_n(m, n), d1_m_n(m, n));
+    //         }
+    //     }
 
-        e_device_buf.FromDevice(e_m_n_device_result.mData.data());
+    //     e_device_buf.FromDevice(e_m_n_device_result.mData.data());
 
-        return ck::utils::check_err(
-                   e_m_n_device_result, e_m_n_host_result, "Error: Incorrect results!", 1e-3, 5e-2)
-                   ? 0
-                   : 1;
-    }
+    //     return ck::utils::check_err(
+    //                e_m_n_device_result, e_m_n_host_result, "Error: Incorrect results!", 1e-3,
+    //                5e-2) ? 0 : 1;
+    // }
 
     return 0;
 }
