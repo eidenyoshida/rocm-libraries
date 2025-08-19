@@ -2103,7 +2103,7 @@ class KernelWriter(metaclass=abc.ABCMeta):
           module.add(self.codes.unrollLoopHeader)
 
       if kernel["ForceUnrollSubIter"]:
-        self.states.lwStartMfmaIndex = math.floor((kernel["MIWaveTile"][1] + kernel["MIWaveTile"][0])/2) -1
+        self.states.lwStartMfmaIndex = (kernel["MIWaveTile"][1] + kernel["MIWaveTile"][0])//2 -1
 
       # which loop iteration to reset the LRO,
       # note if PLR=0, isResetLroIter is False for all u
@@ -2280,7 +2280,7 @@ class KernelWriter(metaclass=abc.ABCMeta):
 
       luIdx = u % self.states.numVgprBuffer # local to use for MACs
       if kernel["ForceUnrollSubIter"]:
-        luIdx = u
+        luIdx = u # Pack[0] is for A0,B0 Pack[1] is for A1,B1. Pack[2] and Pack[3] are empty
       if kernel["EnableMatrixInstruction"]:
         macIterCode.add(self.mfmaIter(kernel, tensorParametersA, tensorParametersB, u, kernel["InnerUnroll"], vregSetIdxMFMA, unrollIdx = u))
       else:

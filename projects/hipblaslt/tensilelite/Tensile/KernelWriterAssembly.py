@@ -6785,6 +6785,11 @@ class KernelWriterAssembly(KernelWriter):
       idxInner_stop = kernel["MIWaveTile"][inner]
       numSubTiles = kernel["numSubTiles"]
       if numSubTiles > 1:
+        # iter  (idxOuter_start, idxOuter_stop)    (idxInner_start, idxInner_stop)        MFMA
+        #  0          (0,4)                             (0,4)                          MFMA(A0,B0) 
+        #  1          (0,4)                             (4,8)                          MFMA(A1,B0) 
+        #  2          (4,8)                             (0,4)                          MFMA(A0,B1)
+        #  3          (4,8)                             (4,8)                          MFMA(A1,B1)
         outerBy2=(kernel["MIWaveTile"][outer]//numSubTiles)
         innerBy2=(kernel["MIWaveTile"][inner]//numSubTiles)
         outerMod2=(kernel["MIWaveTile"][outer]%numSubTiles)
