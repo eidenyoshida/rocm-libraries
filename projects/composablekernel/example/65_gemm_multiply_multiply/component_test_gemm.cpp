@@ -130,6 +130,8 @@ __global__ void test_entry(ADataType* p_a_grid)
     a_blockwise_copy.MoveSrcSliceWindow(a_grid_desc_ak0_m_ak1, a_block_copy_step);
     __builtin_amdgcn_sched_barrier(0);
     a_blockwise_copy.RunWrite(a_block_desc_ak0_m_ak1, a_block_buf);
+
+    a_blockwise_copy.RunRead(a_grid_desc_ak0_m_ak1, a_grid_buf);
 }
 
 int main()

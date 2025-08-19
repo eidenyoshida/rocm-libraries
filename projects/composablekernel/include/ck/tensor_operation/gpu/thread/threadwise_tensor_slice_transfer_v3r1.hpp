@@ -127,6 +127,12 @@ struct ThreadwiseTensorSliceTransfer_v3r1
             is_same<remove_cvref_t<typename SrcBuffer::type>, remove_cvref_t<SrcData>>::value,
             "wrong! SrcBuffer and SrcData data type are inconsistent");
 
+        printf("coord: %d %d %d",
+               src_coord_.GetIndex()[I0],
+               src_coord_.GetIndex()[I1],
+               src_coord_.GetIndex()[I2]);
+        printf(" | %d\n", src_coord_.GetOffset());
+
         // scalar per access on each dim
         // TODO: don't use lambda_scalar_per_access
         constexpr auto src_scalar_per_access = generate_sequence(
