@@ -129,6 +129,9 @@ Invoker Handle::PrepareInvoker(const InvokerFactory& factory,
                                const std::vector<solver::KernelInfo>& kernels,
                                std::vector<Program>* programs_out) const
 {
+    std::cout << "Prep invoker:" << std::endl;
+    std::cout << "Prep invoker kernels count3: " << kernels.size() << std::endl;
+
     std::vector<Kernel> built;
     built.reserve(kernels.size());
     if(programs_out != nullptr)
@@ -136,6 +139,11 @@ Invoker Handle::PrepareInvoker(const InvokerFactory& factory,
 
     for(auto i = 0; i < kernels.size(); ++i)
     {
+        std::cout << "Prep invoker qq:" << std::endl;
+
+        std::cout << "Prep invoker qq: k.kernel_file" << k.kernel_file << std::endl;
+        std::cout << "Prep invoker qq: k.kernel_name" << k.kernel_name << std::endl;
+
         auto& k              = kernels[i];
         Program* program_out = programs_out != nullptr ? &(*programs_out)[i] : nullptr;
 
