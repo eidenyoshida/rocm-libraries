@@ -1060,10 +1060,14 @@ ConvSolution InitInvokerFactoryNCHW(const ExecutionContext& ctx,
                                     const Input2TposeOp& input2_op,
                                     const OutputTposeOp& output_op)
 {
+    std::cout << "Inside 1" << std::endl;
+
     assert(problem.IsLayoutDefault());
 
     ConvSolution result;
 #if MIOPEN_BACKEND_HIP && MIOPEN_USE_COMPOSABLEKERNEL
+
+    std::cout << "Inside 2" << std::endl;
     auto ck_args = CKArgsType{problem};
 
     auto conv_ptrs = DeviceOpType::GetInstances();
@@ -1084,6 +1088,8 @@ ConvSolution InitInvokerFactoryNCHW(const ExecutionContext& ctx,
         _ck_buff_des.emplace(GetCKAlphaBetaWorkspace(problem), 0);
     }
 
+    std::cout << "Inside 3" << std::endl;
+
     auto ptr_iter = FindConvPtrByID(conv_ptrs, id_string);
     if(ptr_iter == conv_ptrs.end())
     {
@@ -1091,9 +1097,15 @@ ConvSolution InitInvokerFactoryNCHW(const ExecutionContext& ctx,
         return {miopenStatusInvalidValue};
     }
 
+    std::cout << "Inside 4" << std::endl;
+
     auto [_input1_tr_inst, _input2_tr_inst, _output_tr_inst, _output_init_tr_inst] =
         internal::MakeTaggedTransposeInstances<CKArgsType>(
             result, ctx, problem, ck_args, input1_op, input2_op, output_op, _ck_buff_des);
+
+    std::cout << "Inside 5" << std::endl;
+
+    std::cout << "Inside 6: kernel_id" << kernel_id << std::endl;
 
     result.invoker_factory = [kernel_id           = kernel_id,
                               split_k             = split_k,
@@ -1118,6 +1130,8 @@ ConvSolution InitInvokerFactoryNCHW(const ExecutionContext& ctx,
                                            const AnyInvokeParams& primitive_parameters) mutable {
             handle.ResetKernelTime();
 
+            std::cout << "Inside 7" << std::endl;
+
             const auto& data_ctx = primitive_parameters.CastTo<CastType>();
             Data_t workspace_ptr = GetWorkspacePointer<CastType>(data_ctx);
             ValidateWorkspacePointer<CastType>(workspace_ptr);
@@ -1139,6 +1153,8 @@ ConvSolution InitInvokerFactoryNCHW(const ExecutionContext& ctx,
                 std::swap(conv_tensors.x, conv_tensors.y);
                 std::swap(conv_tensors.xDesc, conv_tensors.yDesc);
             }
+
+            std::cout << "Inside 8" << std::endl;
 
             float elapsed = 0.0f;
 
@@ -1163,6 +1179,8 @@ ConvSolution InitInvokerFactoryNCHW(const ExecutionContext& ctx,
             std::sort(tr_ptrs.begin(), tr_ptrs.end(), [](const auto& left, const auto& right) {
                 return left->GetConvOperandTagAsInt() < right->GetConvOperandTagAsInt();
             });
+
+            std::cout << "Inside 9" << std::endl;
 
             std::unique_ptr<ck::tensor_operation::device::BaseArgument> argument_ptr =
                 MakeNCHWCKArgPtr<IsSplitKNeeded<DeviceOpType>(),
@@ -1193,11 +1211,14 @@ ConvSolution InitInvokerFactoryNCHW(const ExecutionContext& ctx,
                 handle.AccumKernelTime(elapsed);
             }
 
+            std::cout << "Inside 10" << std::endl;
+
             // ConvertTo automatically keeps kernel time and accumulates
             output_tr_inst.ConvertTo(handle, kernels, conv_tensors);
         };
     };
 
+    std::cout << "Inside 11" << std::endl;
     result.workspace_sz = GetWorkspaceSizeLayoutTransformConv(problem);
 #endif
     return result;
