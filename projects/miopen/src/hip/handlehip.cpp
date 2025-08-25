@@ -498,10 +498,10 @@ Invoker Handle::PrepareInvoker(const InvokerFactory& factory,
     {
         std::cout << "Prep invoker qq:" << std::endl;
 
+        const auto& k        = kernels[i];
         std::cout << "Prep invoker qq: k.kernel_file" << k.kernel_file << std::endl;
         std::cout << "Prep invoker qq: k.kernel_name" << k.kernel_name << std::endl;
 
-        const auto& k        = kernels[i];
         Program* program_out = programs_out != nullptr ? &(*programs_out)[i] : nullptr;
 
         MIOPEN_LOG_I2("Preparing kernel: " << k.kernel_name);
