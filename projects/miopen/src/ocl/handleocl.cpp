@@ -336,18 +336,11 @@ Invoker Handle::PrepareInvoker(const InvokerFactory& factory,
                                const std::vector<solver::KernelInfo>& kernels,
                                std::vector<Program>* programs_out) const
 {
-    std::cout << "Prep invoker ocl:" << std::endl;
-    std::cout << "Prep invoker ocl kernels count: " << kernels.size() << std::endl;
     std::ignore = programs_out;
 
     std::vector<Kernel> built;
     for(auto& k : kernels)
     {
-        std::cout << "Prep invoker qq:" << std::endl;
-
-        std::cout << "Prep invoker qq: k.kernel_file" << k.kernel_file << std::endl;
-        std::cout << "Prep invoker qq: k.kernel_name" << k.kernel_name << std::endl;
-
         MIOPEN_LOG_I2("Preparing kernel: " << k.kernel_name);
         const auto kernel = this->impl->cache.AddKernel(*this,
                                                         "",

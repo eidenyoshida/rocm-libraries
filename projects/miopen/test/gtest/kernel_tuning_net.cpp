@@ -201,8 +201,6 @@ protected:
     {
 #if MIOPEN_ENABLE_AI_KERNEL_TUNING
 
-        std::cout << "0" << std::endl;
-
         auto test_case = GetParam();
 
         auto&& handle = get_handle();
@@ -279,36 +277,31 @@ protected:
         const auto algo      = solver_id.GetAlgo();
         MIOPEN_LOG_I2("Testing solver: " << solver_id.ToString());
 
-        std::cout << "1" << std::endl;
-
         PerfConfig perf_config;
         ASSERT_TRUE(perf_config.IsModelApplicable(ctx, problem));
         perf_config.HeuristicInit(ctx, problem);
 
-        std::cout << "100" << std::endl;
         MIOPEN_LOG_I2("perf_config: " << perf_config.ToString());
         ASSERT_NE(perf_config.ToString(), "");
 
         ASSERT_FALSE(miopen::conv::IsAlgorithmDisabled(algo));
         ASSERT_TRUE(solv.IsDynamic());
-        std::cout << "101" << std::endl;
+
         ASSERT_TRUE(solv.IsApplicable(ctx, problem));
         const auto ws = solv.GetWorkspaceSize(ctx, problem);
         ASSERT_TRUE(
             miopen::conv::IsEnoughWorkspace("GetSolutionsFallback AI", solver_id, ws, &invoke_ctx));
 
-        std::cout << "102" << std::endl;
         miopen::PerformanceDb db = {miopen::DbKinds::PerfDb, fs::path{"/tmp"}, fs::path {
                                         "/tmp"
                                     }}; // empty db, force heuristic
         miopen::solver::ConvSolution sol =
             solv.FindSolution(ctx, problem, db, {}); // auto tune is not expected here
 
-        std::cout << "103" << std::endl;
         const auto invoker = handle.PrepareInvoker(*sol.invoker_factory, sol.construction_params);
-        std::cout << "104" << std::endl;
+        std::cout << "Kernel_tuning_net test: Before invoker" << std::endl;
         invoker(handle, invoke_ctx);
-        std::cout << "105" << std::endl;
+        std::cout << "Kernel_tuning_net test: after invoker" << std::endl;
         MIOPEN_LOG_I("Invoke success: " << solver_id.ToString());
 
 #else
