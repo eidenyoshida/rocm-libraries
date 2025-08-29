@@ -124,27 +124,7 @@ else()
     set(msgpack_libs msgpackc)
 endif()
 
-find_package(Boost 1.74.0 QUIET)
-if(NOT Boost_FOUND)
-    if(ROCROLLER_ENABLE_FETCH)
-        FetchContent_Declare(
-            boost
-            URL https://github.com/boostorg/boost/releases/download/boost-1.87.0/boost-1.87.0-cmake.tar.gz
-        )
-        set(boost_temp_testing ${BUILD_TESTING})
-        set(BUILD_TESTING OFF)
-        set(BUILD_SHARED_LIBS OFF)
-        set(boost_temp_shared ${BUILD_SHARED_LIBS})
-        set(Boost_USE_STATIC_LIBS ON)
-        set(BOOST_INCLUDE_LIBRARIES multi_index)
-        FetchContent_MakeAvailable(boost)
-        set(BUILD_TESTING ${boost_temp_testing})
-        set(BUILD_SHARED_LIBS ${boost_temp_shared})
-    else()
-        message(FATAL_ERROR "Failed to find boost")
-    endif()
-endif()
-
+find_package(Boost 1.74.0 REQUIRED)
 find_package(hip REQUIRED)
 find_package(amd_comgr REQUIRED)
 if(ROCROLLER_ENABLE_LLVM)
