@@ -180,7 +180,7 @@ if(ROCROLLER_ENABLE_TIMERS)
 endif()
 
 if(ROCROLLER_ENABLE_YAML_CPP)
-    find_package(yaml-cpp 0.8.0)
+    find_package(yaml-cpp QUIET)
     if(NOT yaml-cpp_FOUND)
         if(ROCROLLER_ENABLE_FETCH)
             set(YAML_CPP_BUILD_TOOLS OFF)
