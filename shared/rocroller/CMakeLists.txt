@@ -124,7 +124,7 @@ else()
     set(msgpack_libs msgpackc)
 endif()
 
-find_package(Boost 1.74.0 REQUIRED)
+find_package(Boost REQUIRED) # is 1.74.0 required?
 find_package(hip REQUIRED)
 find_package(amd_comgr REQUIRED)
 if(ROCROLLER_ENABLE_LLVM)
