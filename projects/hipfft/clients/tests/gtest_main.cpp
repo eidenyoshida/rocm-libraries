@@ -63,7 +63,9 @@ double complex_planar_prob_factor;
 double callback_prob_factor;
 // Constraints for the hipfftw tests
 size_t max_length_for_hipfftw_test;
+size_t max_nbatch_for_hipfftw_test;
 size_t max_io_gb_for_hipfftw_test;
+size_t max_elementary_stride_for_hipfftw_test;
 
 // Transform parameters for manual test:
 hipfft_params manual_params;
@@ -314,10 +316,21 @@ int main(int argc, char* argv[])
                    "Maximum length to be considered in hipfftw tests")
         ->default_val(8192)
         ->check(CLI::PositiveNumber);
+    app.add_option("--max_nbatch_for_hipfftw_test",
+                   max_nbatch_for_hipfftw_test,
+                   "Maximum batch size to be considered in hipfftw tests")
+        ->default_val(8192)
+        ->check(CLI::PositiveNumber);
     app.add_option("--max_io_gb_for_hipfftw_test",
                    max_io_gb_for_hipfftw_test,
                    "Maximum size of I/O to be considered in hipfftw tests in GiB")
         ->default_val(1) /* 1 GiB */
+        ->check(CLI::PositiveNumber);
+    app.add_option("--max_elementary_stride_for_hipfftw_test",
+                   max_elementary_stride_for_hipfftw_test,
+                   "Maximum (elementary) stride to consider in hipfftw tests for non-packed I/O "
+                   "data layouts")
+        ->default_val(8)
         ->check(CLI::PositiveNumber);
 
     app.add_option("--fftw_compare", fftw_compare, "Compare to FFTW in accuracy tests")
