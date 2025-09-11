@@ -5,6 +5,10 @@ Documentation for rocRAND is available at
 
 ## rocRAND 4.1.0 for ROCm 7.1
 
+### Added
+
+* Added a new CMake option `-DUSE_SYSTEM_LIB` to allow tests to be built from `ROCm` libraries provided by the system.
+
 ### Resolved issues
 
 * Updated error handling for several rocRAND unit tests to accomodate the new hipGetLastError behaviour that was introduced in ROCm 7.0.
