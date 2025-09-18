@@ -1037,11 +1037,11 @@ namespace origami
             {
                 total_latency = total_latency * 8;
             }
-            else if(K_iters <= 4)
+            else if(K_iters < 4)
             {
                 total_latency = total_latency * 4;
             }
-            else if(K_iters <= 8)
+            else if(K_iters < 8)
             {
                 total_latency = total_latency * 2.1;
             }
@@ -1102,8 +1102,13 @@ namespace origami
                 if(MT_M == 256 && MT_N == 256 && MT_K == 64)
                 {
                     total_latency = total_latency * 0.85;
+                    // Bias large N for BBS TN
+                    if((transA && !transB) && (M == MT_M && N > 256 * MT_N && K >= 4*MT_K))
+                    {
+                        total_latency = total_latency * 0.7;
+                    }
                 }
-
+                
                 // The kernel for this is less optimized, for some reason
                 if(MT_M == 256 && MT_N == 16 && MT_K == 128)
                 {
@@ -1115,6 +1120,8 @@ namespace origami
                 {
                     total_latency = total_latency * 2;
                 }
+                
+                
             }
 
             // Heuristics for FP8
