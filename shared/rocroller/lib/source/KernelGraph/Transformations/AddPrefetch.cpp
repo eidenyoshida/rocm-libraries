@@ -1005,6 +1005,8 @@ namespace rocRoller
                         = (m_exchangeSegment[exchangeTag] + numInFlight) % numUnroll;
 
                     auto loadTag = getLoadForExchange(exchangeTag, graph);
+		    if(!loadTag)
+			continue;
                     AssertFatal(loadTag.has_value(),
                                 "couldn't find the load associated with the exchange");
 

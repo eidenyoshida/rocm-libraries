@@ -65,9 +65,9 @@ namespace rocRoller
                 auto tileTag = graph.mapper.get<MacroTile>(loadTag);
                 if(scaleTiles.contains(tileTag))
                 {
-                    // TODO: skip the swizzle pass for scale loaded via LDS.
-                    if(isOperation<LoadLDSTile>(graph.control.getElement(loadTag)))
-                        return std::map<int, int>();
+                    // // TODO: skip the swizzle pass for scale loaded via LDS.
+                    // if(isOperation<LoadLDSTile>(graph.control.getElement(loadTag)))
+                    //     return std::map<int, int>();
                     scaleLoads.insert(std::make_pair(loadTag, tileTag));
                 }
             }
@@ -80,6 +80,27 @@ namespace rocRoller
                                             NaryArgument       arg,
                                             std::map<int, int> tileExchangeMap)
         {
+            // from AddPrefetch.cpp
+            std::optional<int> getExchangeForMultiply(
+                KernelGraph const& graph, int multiplyTag, NaryArgument arg);
+
+            auto root = graph.control.roots().only();
+
+            for(auto const multiplyTag : filter(graph.control.isElemType<Multiply>(),
+                                                graph.control.depthFirstVisit(root.value())))
+            {
+                auto exchangeTag = getExchangeForMultiply(graph, multiplyTag, arg);
+                if(!exchangeTag.has_value())
+                    continue;
+                Log::debug("Adding exchange-before-multiply Sequence edge from {} to {} for {}",
+                           exchangeTag.value(),
+                           multiplyTag,
+                           toString(arg));
+                graph.control.addElement(Sequence(), {exchangeTag.value()}, {multiplyTag});
+            }
+
+            // ORIGINAL
+#if 0
             auto root = graph.control.roots().only();
 
             for(auto const multiplyTag : filter(graph.control.isElemType<Multiply>(),
@@ -96,6 +117,7 @@ namespace rocRoller
 
                 graph.control.addElement(Sequence(), {tileExchangeMap.at(tileTag)}, {multiplyTag});
             }
+#endif
         }
 
         std::map<int, std::map<int, int>>

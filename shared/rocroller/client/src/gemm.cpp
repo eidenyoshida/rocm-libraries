@@ -202,6 +202,10 @@ namespace rocRoller::Client::GEMMClient
             DGenInput(seed, hostA, descA, hostB, descB, hostC, descC);
         }
 
+        // Fill all entries of hostScaleA/B with 0.25
+        //hostScaleA.assign(hostScaleA.size(), floatToScale(problemParams.types.scaleTypeA, 0.25f));
+        //hostScaleB.assign(hostScaleB.size(), floatToScale(problemParams.types.scaleTypeB, 0.25f));
+
         auto deviceA = make_shared_device(hostA);
         auto deviceB = make_shared_device(hostB);
         auto deviceC = make_shared_device(hostC);
@@ -1691,24 +1695,24 @@ int main(int argc, const char* argv[])
     problem.types  = types;
     solution.types = types;
 
-    // Set default prefetchMixMemOps
-    if(prefetchMixMemOpsFlag->count() == 0)
-    {
-        solution.prefetchMixMemOps = false;
+    // // Set default prefetchMixMemOps
+    // if(prefetchMixMemOpsFlag->count() == 0)
+    // {
+    //     solution.prefetchMixMemOps = false;
 
-        if(solution.prefetchLDSFactor != 0)
-            solution.prefetchMixMemOps = true;
+    //     if(solution.prefetchLDSFactor != 0)
+    //         solution.prefetchMixMemOps = true;
 
-        if(types.scaleB == Operations::ScaleMode::Separate && !solution.loadLDSScaleB)
-            solution.prefetchMixMemOps = false;
+    //     if(types.scaleB == Operations::ScaleMode::Separate && !solution.loadLDSScaleB)
+    //         solution.prefetchMixMemOps = false;
 
-        if(types.scaleA == Operations::ScaleMode::Separate && !solution.loadLDSScaleA)
-            solution.prefetchMixMemOps = false;
+    //     if(types.scaleA == Operations::ScaleMode::Separate && !solution.loadLDSScaleA)
+    //         solution.prefetchMixMemOps = false;
 
-        // TODO: enable (prefetchMixMemOps == true && prefetchLDSFactor == 2 && direct2LDSA/B = true)
-        if(solution.prefetchLDSFactor == 2 && (solution.direct2LDSA || solution.direct2LDSB))
-            solution.prefetchMixMemOps = false;
-    }
+    //     // TODO: enable (prefetchMixMemOps == true && prefetchLDSFactor == 2 && direct2LDSA/B = true)
+    //     if(solution.prefetchLDSFactor == 2 && (solution.direct2LDSA || solution.direct2LDSB))
+    //         solution.prefetchMixMemOps = false;
+    // }
 
     //
     // Run!
