@@ -2633,6 +2633,16 @@ namespace
                     fwd_nembed, is_real(dft_kind) && placement == fft_placement_inplace);
                 const auto bwd_nembed = get_random_bwd_domain_nembed<valid_value>(
                     max_nembed, fwd_nembed, lengths, dft_kind, placement);
+                /* ------------------------- BEGIN WORKAROUND ----------------------------------- */
+                // TODO : remove this workaround once rocfft can do such layouts
+                if(is_real(dft_kind) && lengths.back() % 2 == 0
+                   && (fwd_nembed.back() * elementary_fwd_stride) % 2 == 1)
+                {
+                    // rocfft can't handle odd values of (fwd_nembed.back() * elementary_fwd_stride)
+                    // with even values of lengths.back() for real transforms.
+                    fwd_nembed.back()--;
+                }
+                /* -------------------------- END WORKAROUND ----------------------------------- */
                 const auto& istride
                     = is_fwd(dft_kind) ? elementary_fwd_stride : elementary_bwd_stride;
                 const auto& ostride
