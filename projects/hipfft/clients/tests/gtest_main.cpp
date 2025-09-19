@@ -62,10 +62,11 @@ double complex_planar_prob_factor;
 // Modifier for probability of running tests with callbacks
 double callback_prob_factor;
 // Constraints for the hipfftw tests
-size_t max_length_for_hipfftw_test;
-size_t max_nbatch_for_hipfftw_test;
-size_t max_io_gb_for_hipfftw_test;
-size_t max_elementary_stride_for_hipfftw_test;
+size_t      max_length_for_hipfftw_test;
+size_t      max_nbatch_for_hipfftw_test;
+size_t      max_io_gb_for_hipfftw_test;
+size_t      max_elementary_stride_for_hipfftw_test;
+std::string hipfftw_token_for_functional_test;
 
 // Transform parameters for manual test:
 hipfft_params manual_params;
@@ -332,6 +333,10 @@ int main(int argc, char* argv[])
                    "data layouts")
         ->default_val(8)
         ->check(CLI::PositiveNumber);
+    app.add_option("--hipfftw_token",
+                   hipfftw_token_for_functional_test,
+                   "manual token for hipfftw functional test")
+        ->default_val("");
 
     app.add_option("--fftw_compare", fftw_compare, "Compare to FFTW in accuracy tests")
         ->default_val(true);

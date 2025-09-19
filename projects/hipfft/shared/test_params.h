@@ -37,10 +37,6 @@ extern double complex_interleaved_prob_factor;
 extern double real_prob_factor;
 extern double complex_planar_prob_factor;
 extern double callback_prob_factor;
-extern size_t max_length_for_hipfftw_test;
-extern size_t max_nbatch_for_hipfftw_test;
-extern size_t max_io_gb_for_hipfftw_test;
-extern size_t max_elementary_stride_for_hipfftw_test;
 
 extern double half_epsilon;
 extern double single_epsilon;
@@ -55,5 +51,12 @@ extern double max_linf_eps_half;
 extern double max_l2_eps_half;
 
 extern int n_hip_failures;
+
+// hipfftw-specific test parameters:
+extern size_t      max_length_for_hipfftw_test;
+extern size_t      max_nbatch_for_hipfftw_test;
+extern size_t      max_io_gb_for_hipfftw_test;
+extern size_t      max_elementary_stride_for_hipfftw_test;
+extern std::string hipfftw_token_for_functional_test;
 
 #endif

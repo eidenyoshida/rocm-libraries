@@ -1633,6 +1633,44 @@ public:
         ret << "_flags_" << flags;
         return ret.str();
     }
+
+    // NOTE: from_token only supports configurations that fft_params itself supports
+    void from_token(const std::string& token)
+    {
+        fft_params tmp;
+        tmp.from_token(token);
+        if(tmp.istride.size() != tmp.ostride.size() || tmp.istride.size() != tmp.length.size())
+            throw std::runtime_error(
+                "unexpected mismatch of vector sizes in hipfftw_helper::from_token");
+        dft_kind   = tmp.transform_type;
+        rank       = tmp.length.size();
+        batch_rank = 1;
+        lengths.resize(rank);
+        istrides.resize(rank);
+        ostrides.resize(rank);
+        for(auto dim = 0; dim < rank; dim++)
+        {
+            lengths[dim]  = tmp.length[dim];
+            istrides[dim] = tmp.istride[dim];
+            ostrides[dim] = tmp.ostride[dim];
+        }
+
+        batches        = std::vector<ptrdiff_t>(1, tmp.nbatch);
+        idist          = std::vector<ptrdiff_t>(1, tmp.idist);
+        odist          = std::vector<ptrdiff_t>(1, tmp.odist);
+        plan_placement = tmp.placement;
+        sign           = is_fwd(dft_kind) ? FFTW_FORWARD : FFTW_BACKWARD;
+        flags          = FFTW_ESTIMATE;
+
+        const std::string flags_label = "flags";
+        auto              pos         = token.find(flags_label);
+        if(pos != std::string::npos)
+        {
+            pos += flags_label.size() + 1;
+            flags = std::stoull(token.substr(pos, token.find("_", pos)));
+        }
+    }
+
     // create_plan invokes an hipfftw plan creation function for the object's configuration
     // parameters, the corresponding plan pointer returned by hipfftw is stored internally.
     // IMPORTANT NOTE: if one wants to target a specific creation function (as represented

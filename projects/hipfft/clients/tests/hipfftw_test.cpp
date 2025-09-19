@@ -2025,12 +2025,16 @@ namespace
     template <fft_precision prec>
     struct hipfftw_functional_validation_params
     {
+
         // define type of I/O argument memory to be tested at a given step (creation/execution)
         // by a map: mem_type[{step_label, io_label}] represents the test's target memory type to consider
         // for the "io_label" I/O argument at step "step_label"
         std::map<std::pair<hipfftw_step, fft_io>, hipfftw_data_memory_type> mem_type;
         hipfftw_execution_io_args                                           execution_io;
         hipfftw_helper<prec>                                                plan_helper;
+
+        hipfftw_functional_validation_params()
+            : manually_created(false){};
 
         fft_transform_type get_dft_kind() const
         {
@@ -2172,29 +2176,92 @@ namespace
                 }
             }
             std::ostringstream ret;
+            if(manually_created)
+                ret << "manual_";
             ret << plan_helper.token();
-            ret << "_creation_input_mem_type_"
+            ret << "_" << creation_input_mem_type_label << "_"
                 << hipfftw_data_mem_type_to_string(
                        mem_type.at({hipfftw_step::plan_creation, fft_io::fft_io_in}));
             if(plan_helper.get_placement() == fft_placement_notinplace)
             {
-                ret << "_creation_output_mem_type_"
+                ret << "_" << creation_output_mem_type_label << "_"
                     << hipfftw_data_mem_type_to_string(
                            mem_type.at({hipfftw_step::plan_creation, fft_io::fft_io_out}));
             }
             if(execution_io == hipfftw_execution_io_args::clean_new_io)
             {
-                ret << "_execution_input_mem_type_"
+                ret << "_" << execution_input_mem_type_label << "_"
                     << hipfftw_data_mem_type_to_string(
                            mem_type.at({hipfftw_step::plan_execution, fft_io::fft_io_in}));
                 if(plan_helper.get_placement() == fft_placement_notinplace)
                 {
-                    ret << "_execution_output_mem_type_"
+                    ret << "_" << execution_output_mem_type_label << "_"
                         << hipfftw_data_mem_type_to_string(
                                mem_type.at({hipfftw_step::plan_execution, fft_io::fft_io_out}));
                 }
             }
             return ret.str();
+        }
+
+        // constructor from token
+        hipfftw_functional_validation_params(const std::string& manual_token)
+            : manually_created(true)
+        {
+            plan_helper.from_token(manual_token);
+
+            auto get_mem_type_from_str = [&](const std::string_view& which_io_label) {
+                std::ostringstream failure_info;
+                auto               pos = manual_token.find(which_io_label);
+                if(pos == std::string::npos)
+                {
+                    failure_info << which_io_label << " absent from manual token (" << manual_token
+                                 << ")";
+                    throw std::runtime_error(failure_info.str());
+                }
+                pos += which_io_label.size() + 1; // +1 for the '_' delimiter
+                for(auto tmp : get_possible_data_mem_types())
+                {
+                    const auto match = hipfftw_data_mem_type_to_string(tmp);
+                    if(manual_token.find(match, pos) == pos)
+                        return tmp;
+                }
+                failure_info
+                    << "A type of memory allocation testable by hipfftw cannot be determined from "
+                    << manual_token
+                    << ": the (partial) token might be invalid or the targeted type of memory is "
+                       "not accessible on this platform.";
+                throw std::runtime_error(failure_info.str());
+            };
+
+            execution_io = manual_token.find(execution_input_mem_type_label) != std::string::npos
+                               ? hipfftw_execution_io_args::clean_new_io
+                               : hipfftw_execution_io_args::use_creation_io;
+
+            mem_type[{hipfftw_step::plan_creation, fft_io::fft_io_in}]
+                = get_mem_type_from_str(creation_input_mem_type_label);
+            if(plan_helper.get_placement() == fft_placement_notinplace)
+                mem_type[{hipfftw_step::plan_creation, fft_io::fft_io_out}]
+                    = get_mem_type_from_str(creation_output_mem_type_label);
+            else
+                mem_type[{hipfftw_step::plan_creation, fft_io::fft_io_out}]
+                    = mem_type[{hipfftw_step::plan_creation, fft_io::fft_io_in}];
+            if(execution_io == hipfftw_execution_io_args::clean_new_io)
+            {
+                mem_type[{hipfftw_step::plan_execution, fft_io::fft_io_in}]
+                    = get_mem_type_from_str(execution_input_mem_type_label);
+                if(plan_helper.get_placement() == fft_placement_notinplace)
+                    mem_type[{hipfftw_step::plan_execution, fft_io::fft_io_out}]
+                        = get_mem_type_from_str(execution_output_mem_type_label);
+                else
+                    mem_type[{hipfftw_step::plan_execution, fft_io::fft_io_out}]
+                        = mem_type[{hipfftw_step::plan_execution, fft_io::fft_io_in}];
+            }
+            else
+            {
+                for(auto io : {fft_io::fft_io_in, fft_io::fft_io_out})
+                    mem_type[{hipfftw_step::plan_execution, io}]
+                        = mem_type[{hipfftw_step::plan_creation, io}];
+            }
         }
 
         // for using with insert_into_unique_sorted_params
@@ -2212,6 +2279,16 @@ namespace
             stream << params.to_string();
             return stream;
         }
+
+    private:
+        static constexpr std::string_view creation_input_mem_type_label = "creation_input_mem_type";
+        static constexpr std::string_view creation_output_mem_type_label
+            = "creation_output_mem_type";
+        static constexpr std::string_view execution_input_mem_type_label
+            = "execution_input_mem_type";
+        static constexpr std::string_view execution_output_mem_type_label
+            = "execution_output_mem_type";
+        bool manually_created;
     };
 
     template <fft_precision prec>
@@ -2705,7 +2782,7 @@ namespace
 
     template <fft_precision prec>
     std::vector<hipfftw_functional_validation_params<prec>>
-        params_for_functional_tests(size_t desired_full_suite_size)
+        params_for_functional_tests(size_t desired_full_suite_size, const std::string& manual_token)
     {
         std::vector<hipfftw_functional_validation_params<prec>> full_list;
         hipfftw_functional_validation_params<prec>              to_add;
@@ -2780,8 +2857,6 @@ namespace
                 continue;
             insert_into_unique_sorted_params(full_list, to_add);
         }
-        if(test_prob == 1.0 && real_prob_factor == 1.0)
-            return full_list;
         std::vector<hipfftw_functional_validation_params<prec>> ret;
         for(const auto& test : full_list)
         {
@@ -2799,6 +2874,15 @@ namespace
             }
             ret.emplace_back(test);
         }
+        // always add the manually-provided test, if matching target test's precision
+        if(!manual_token.empty()
+           && manual_token.find(prec == fft_precision_single ? "single" : "double")
+                  != std::string::npos)
+        {
+            insert_into_unique_sorted_params(
+                ret, hipfftw_functional_validation_params<prec>(manual_token));
+        }
+
         return ret;
     }
 
@@ -2880,16 +2964,16 @@ TEST_P(hipfftw_functional_validation_dp, accuracy_vs_fftw)
 }
 
 static constexpr size_t full_suite_size = 1024; // per precision
-INSTANTIATE_TEST_SUITE_P(
-    hipfftw_test,
-    hipfftw_functional_validation_sp,
-    ::testing::ValuesIn(params_for_functional_tests<fft_precision_single>(full_suite_size)),
-    hipfftw_functional_validation_sp::TestName);
-INSTANTIATE_TEST_SUITE_P(
-    hipfftw_test,
-    hipfftw_functional_validation_dp,
-    ::testing::ValuesIn(params_for_functional_tests<fft_precision_double>(full_suite_size)),
-    hipfftw_functional_validation_dp::TestName);
+INSTANTIATE_TEST_SUITE_P(hipfftw_test,
+                         hipfftw_functional_validation_sp,
+                         ::testing::ValuesIn(params_for_functional_tests<fft_precision_single>(
+                             full_suite_size, hipfftw_token_for_functional_test)),
+                         hipfftw_functional_validation_sp::TestName);
+INSTANTIATE_TEST_SUITE_P(hipfftw_test,
+                         hipfftw_functional_validation_dp,
+                         ::testing::ValuesIn(params_for_functional_tests<fft_precision_double>(
+                             full_suite_size, hipfftw_token_for_functional_test)),
+                         hipfftw_functional_validation_dp::TestName);
 
 // params_for_functional_tests may return empty vectors for low test probabilities.
 // The following ensures such cases do not make gtest report an error due to uninstantiated
