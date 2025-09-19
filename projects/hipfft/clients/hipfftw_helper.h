@@ -1387,9 +1387,17 @@ public:
         return tmp[0];
     }
 
-    std::shared_ptr<hipfftw_plan_bundle_t<prec>> get_plan_bundle() const
+    hipfftw_plan_creation_func get_plan_creation_function() const
     {
-        return plan_bundle;
+        if(!plan_bundle)
+            return hipfftw_plan_creation_func::NONE;
+        return plan_bundle->creation_func;
+    }
+    hipfftw_plan_t<prec> get_plan() const
+    {
+        if(!plan_bundle)
+            return nullptr;
+        return plan_bundle->plan;
     }
     // checks if the current parameters can be used with (any of) the given option(s) of
     // plan creation, given the corresponding plan creation's signature (NOT whether they're

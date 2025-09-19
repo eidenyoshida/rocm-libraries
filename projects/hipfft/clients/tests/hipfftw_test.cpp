@@ -633,6 +633,11 @@ namespace
         {
             return to_string() == other.to_string();
         }
+        friend std::ostream& operator<<(std::ostream& stream, const hipfftw_malloc_params& params)
+        {
+            stream << params.to_string();
+            return stream;
+        }
     };
 
     template <fft_precision prec>
@@ -1213,6 +1218,12 @@ namespace
         bool operator==(const hipfftw_input_validation_params& other) const
         {
             return to_string() == other.to_string();
+        }
+        friend std::ostream& operator<<(std::ostream&                          stream,
+                                        const hipfftw_input_validation_params& params)
+        {
+            stream << params.to_string();
+            return stream;
         }
     };
 
@@ -1844,16 +1855,12 @@ namespace
                 {
                     log_content = exception_logger->get_log();
                     exception_logger.reset();
-                    const std::shared_ptr<hipfftw_plan_bundle_t<prec>> plan_bundle
-                        = params.plan_helper.get_plan_bundle();
-                    if(!plan_bundle)
+                    if(params.plan_helper.get_plan())
                         throw std::runtime_error(
-                            "the plan bundle could not be retrieved from the parameters");
-                    if(plan_bundle->plan)
-                        throw std::runtime_error(
-                            hipfftw_creation_options_to_string(plan_bundle->creation_func,
-                                                               params.plan_helper.get_dft_kind(),
-                                                               params.plan_helper.get_rank())
+                            hipfftw_creation_options_to_string(
+                                params.plan_helper.get_plan_creation_function(),
+                                params.plan_helper.get_dft_kind(),
+                                params.plan_helper.get_rank())
                             + " actually created a plan for these parameters");
                 }
                 else
@@ -2199,6 +2206,12 @@ namespace
         {
             return to_string() == other.to_string();
         }
+        friend std::ostream& operator<<(std::ostream&                               stream,
+                                        const hipfftw_functional_validation_params& params)
+        {
+            stream << params.to_string();
+            return stream;
+        }
     };
 
     template <fft_precision prec>
@@ -2442,6 +2455,20 @@ namespace
                 params.plan_helper.create_plan(
                     test_io_ptr.at({hipfftw_step::plan_creation, fft_io::fft_io_in}),
                     test_io_ptr.at({hipfftw_step::plan_creation, fft_io::fft_io_out}));
+                if(!params.plan_helper.get_plan())
+                {
+                    std::ostringstream gtest_info;
+                    gtest_info << "Plan creation failed";
+                    if(exception_logger.is_active())
+                    {
+                        const auto log_content = exception_logger.get_log();
+                        if(!log_content.empty())
+                        {
+                            gtest_info << "\nNon-empty log content detected:\n" << log_content;
+                        }
+                    }
+                    GTEST_FAIL() << gtest_info.str();
+                }
                 params.plan_helper.execute(
                     test_io_ptr.at({hipfftw_step::plan_execution, fft_io::fft_io_in}),
                     test_io_ptr.at({hipfftw_step::plan_execution, fft_io::fft_io_out}));
