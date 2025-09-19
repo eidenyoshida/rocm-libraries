@@ -489,6 +489,7 @@ if( MIOPEN_BACKEND MATCHES "OpenCL" OR MIOPEN_BACKEND STREQUAL "HIPOC" OR MIOPEN
         kernels/conv_common.inc
         kernels/conv_sizes.inc
         kernels/float_types.h
+        kernels/pooling_functions.h
         kernels/gpr_alloc.inc
         kernels/hip_atomic.hpp
         kernels/hip_f8_impl.hpp
@@ -556,7 +557,7 @@ if( MIOPEN_BACKEND MATCHES "OpenCL" OR MIOPEN_BACKEND STREQUAL "HIPOC" OR MIOPEN
         kernels/MIOpenMultiMarginLoss.cpp
         kernels/MIOpenNeuron.cl
         kernels/MIOpenPReLU.cpp
-        kernels/MIOpenPooling.cl
+        kernels/MIOpenPooling.cpp
         kernels/MIOpenPoolingBwd.cl
         kernels/MIOpenPoolingBwdND.cl
         kernels/MIOpenPoolingForwardNaive.cl
