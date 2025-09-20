@@ -2780,6 +2780,57 @@ namespace
         }
     }
 
+    // always nembed-compatible
+    template <fft_precision prec>
+    void setup_inner_batched_plan(hipfftw_helper<prec>& helper)
+    {
+        const auto dft_kind = get_random_element_in(trans_type_range_full);
+        const auto rank     = get_random_rank<valid_value, 1, 3>();
+        // cannot do nembed-compliant in-place, multi-dimensional r2c
+        const auto    placement  = is_real(dft_kind) && rank > 1 ? fft_placement_notinplace
+                                                                 : get_random_element_in(place_range);
+        constexpr int batch_rank = 1;
+        const auto    batches
+            = get_random_vector<valid_value, int>(batch_rank, max_nbatch_for_hipfftw_test, 1);
+        const ptrdiff_t bwd_dist = 1;
+        const ptrdiff_t fwd_dist = is_real(dft_kind) && placement == fft_placement_inplace ? 2 : 1;
+        const size_t    max_data_size_per_batch
+            = max_byte_size_for_hipfftw_tests() / (fwd_dist * batches[0]);
+        const ptrdiff_t max_len    = std::min(static_cast<ptrdiff_t>(max_length_for_hipfftw_test),
+                                           find_threshold_length_for_byte_size<prec>(
+                                               max_data_size_per_batch, rank, is_real(dft_kind)));
+        const auto      lengths    = get_random_vector<valid_value, int>(rank, max_len, 1);
+        auto            fwd_nembed = lengths;
+        auto            bwd_nembed = lengths;
+        if(is_real(dft_kind))
+        {
+            bwd_nembed.back() = bwd_nembed.back() / 2 + 1;
+            if(placement == fft_placement_inplace)
+                fwd_nembed.back() = 2 * bwd_nembed.back();
+        }
+        const auto& istride  = batches[0] * (is_fwd(dft_kind) ? fwd_dist : bwd_dist);
+        const auto& ostride  = batches[0] * (is_fwd(dft_kind) ? bwd_dist : fwd_dist);
+        const auto& inembed  = is_fwd(dft_kind) ? fwd_nembed : bwd_nembed;
+        const auto& onembed  = is_fwd(dft_kind) ? bwd_nembed : fwd_nembed;
+        const auto  istrides = compute_strides_from_nembed(inembed, istride);
+        const auto  ostrides = compute_strides_from_nembed(onembed, ostride);
+        const auto  idist    = std::vector<ptrdiff_t>(1, is_fwd(dft_kind) ? fwd_dist : bwd_dist);
+        const auto  odist    = std::vector<ptrdiff_t>(1, is_fwd(dft_kind) ? bwd_dist : fwd_dist);
+
+        helper.set_creation_args(dft_kind,
+                                 rank,
+                                 lengths,
+                                 placement,
+                                 is_fwd(dft_kind) ? FFTW_FORWARD : FFTW_BACKWARD,
+                                 FFTW_ESTIMATE,
+                                 istrides,
+                                 ostrides,
+                                 batch_rank,
+                                 batches,
+                                 idist,
+                                 odist);
+    }
+
     template <fft_precision prec>
     std::vector<hipfftw_functional_validation_params<prec>>
         params_for_functional_tests(size_t desired_full_suite_size, const std::string& manual_token)
@@ -2791,13 +2842,14 @@ namespace
         {
             default_unbatched,
             default_batched,
-            random_nembed_compatible /*,
-            inner_batched*/
+            random_nembed_compatible,
+            inner_batched
         };
         const std::vector<test_layout> possible_test_layouts
             = {test_layout::default_unbatched,
                test_layout::default_batched,
-               test_layout::random_nembed_compatible};
+               test_layout::random_nembed_compatible,
+               test_layout::inner_batched};
         std::uniform_int_distribution<int> coin_toss(0, 1);
         const auto&                        possible_mem_types = get_possible_data_mem_types();
         while(full_list.size() < desired_full_suite_size)
@@ -2816,6 +2868,9 @@ namespace
                 break;
             case test_layout::random_nembed_compatible:
                 setup_random_nembed_compliant_plan(to_add.plan_helper);
+                break;
+            case test_layout::inner_batched:
+                setup_inner_batched_plan(to_add.plan_helper);
                 break;
             default:
                 throw std::runtime_error(
