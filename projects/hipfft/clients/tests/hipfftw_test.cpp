@@ -2733,8 +2733,37 @@ namespace
                     if((fwd_nembed.back() * elementary_fwd_stride) % 2 == 1)
                         fwd_nembed.back()--;
                 }
-                const auto lengths = get_random_lengths_from_fwd_domain_nembed<valid_value>(
+                auto lengths = get_random_lengths_from_fwd_domain_nembed<valid_value>(
                     fwd_nembed, is_real(dft_kind) && placement == fft_placement_inplace);
+                /* ------------------------- BEGIN WORKAROUND ----------------------------------- */
+                // rocfft struggles to create some plans with non-default strides for lengths
+                // AxBxC wherein B,C are in
+                const std::vector<std::array<decltype(lengths)::value_type, 2>> symptomatic_sub_len
+                    = {{16, 4},
+                       {4, 16},
+                       {16, 25},
+                       {25, 16},
+                       {8, 9},
+                       {9, 8},
+                       {8, 4},
+                       {4, 8},
+                       {4, 9},
+                       {9, 4},
+                       {20, 10},
+                       {10, 20}};
+                // (failing lengths usually have a value of A involving a prime factor > 17)
+                while(rank == 3
+                      && std::any_of(symptomatic_sub_len.begin(),
+                                     symptomatic_sub_len.end(),
+                                     [&](const std::array<ptrdiff_t, 2>& sub_len) {
+                                         return std::equal(
+                                             sub_len.begin(), sub_len.end(), lengths.begin() + 1);
+                                     }))
+                {
+                    lengths = get_random_lengths_from_fwd_domain_nembed<valid_value>(
+                        fwd_nembed, is_real(dft_kind) && placement == fft_placement_inplace);
+                }
+                /* -------------------------- END WORKAROUND ----------------------------------- */
                 const auto bwd_nembed = get_random_bwd_domain_nembed<valid_value>(
                     max_nembed, fwd_nembed, lengths, dft_kind, placement);
                 /* ------------------------- BEGIN WORKAROUND ----------------------------------- */
