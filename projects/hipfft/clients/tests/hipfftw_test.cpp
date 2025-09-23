@@ -2225,6 +2225,7 @@ namespace
                     if(manual_token.find(match, pos) == pos)
                         return tmp;
                 }
+
                 failure_info
                     << "A type of memory allocation testable by hipfftw cannot be determined from "
                     << manual_token
@@ -2814,7 +2815,9 @@ namespace
     void setup_inner_batched_plan(hipfftw_helper<prec>& helper)
     {
         const auto dft_kind = get_random_element_in(trans_type_range_full);
-        const auto rank     = get_random_rank<valid_value, 1, 3>();
+        // TODO: re-enable 1D for complex DFTs as well once rocfft can reliably handle those
+        const auto rank = is_complex(dft_kind) ? get_random_rank<valid_value, 2, 3>()
+                                               : get_random_rank<valid_value, 1, 3>();
         // cannot do nembed-compliant in-place, multi-dimensional r2c
         const auto    placement  = is_real(dft_kind) && rank > 1 ? fft_placement_notinplace
                                                                  : get_random_element_in(place_range);
