@@ -27,6 +27,7 @@
 #include <rocRoller/KernelGraph/KernelGraph.hpp>
 #include <rocRoller/KernelGraph/Transforms/PrefetchScale.hpp>
 #include <rocRoller/KernelGraph/Utils.hpp>
+#include <rocRoller/KernelOptions_detail.hpp>
 
 namespace rocRoller
 {
@@ -352,6 +353,7 @@ namespace rocRoller
             std::optional<int>              numInFlight;
             std::map<int, std::vector<int>> nextIterPrefetch;
             std::map<int, std::vector<int>> exchangePrefetch;
+            std::map<int, std::vector<int>> copy;
             auto                            isInsideLoop = false;
 
             for(auto const loadTag : loads)
@@ -365,8 +367,6 @@ namespace rocRoller
                     if(!numInFlight.has_value())
                         numInFlight = prefetchPosition.size();
 
-                    std::cout << numInFlight.value() << std::endl;
-
                     // the swizzle scale loads must be inside the loop K
                     auto maybeForLoop = findContainingOperation<ForLoopOp>(loadTag, graph);
                     AssertFatal(maybeForLoop.has_value());
@@ -374,27 +374,100 @@ namespace rocRoller
                     auto unrollMap  = colouring.operationColour.at(loadTag);
                     auto unrollKDim = graph.mapper.get<Unroll>(loadTag, 2);
                     auto subiter    = unrollMap.at(unrollKDim);
-                    std::cout << macTile.memoryType << " " << subiter << std::endl;
 
                     auto topOp = getTopSetCoordinate(graph, loadTag);
                     replaceWith(graph, topOp, graph.control.addElement(NOP()), false);
                     nextIterPrefetch[subiter].push_back(topOp);
 
-                    auto exchanges   = getExchangesForLoad(loadTag, graph);
-                    auto unrollKSize = getUnrollSize(graph, unrollKDim);
-                    for(auto const exchange : exchanges)
+                    if(context->kernelOptions()->scaleSkipPermlane)
                     {
-                        std::cout << loadTag << " : " << exchange << std::endl;
-                        replaceWith(graph, exchange, graph.control.addElement(NOP()), false);
-                        exchangePrefetch[subiter].push_back(exchange);
-
-                        if(subiter == 0)
+                        // Copy loaded data into a new set of VGPRs
+                        DataType dataType;
+                        size_t   numVGPRs;
                         {
-                            auto exchangeDup = duplicateControlNode(graph, exchange);
-                            exchangePrefetch[unrollKSize].push_back(exchangeDup);
+                            auto waveTileTag = graph.mapper.get<WaveTile>(loadTag);
+                            auto waveTile    = graph.coordinates.get<WaveTile>(waveTileTag);
+                            auto elements    = waveTile.value().elements();
+
+                            auto varType = getVariableType(graph, loadTag);
+                            // TODO: This assumes that eventually (after
+                            // LoadPacked) the incoming data will be
+                            // packed
+                            auto maybePacked = DataTypeInfo::Get(varType).packedVariableType();
+                            if(maybePacked)
+                                varType = *maybePacked;
+                            auto packFactor = DataTypeInfo::Get(varType).packing;
+
+                            uint wfs = context->kernel()->wavefront_size();
+
+                            dataType = varType.dataType;
+                            numVGPRs = elements / wfs / packFactor;
+                        }
+                        auto copyExpr = std::make_shared<Expression::Expression>(
+                            Expression::DataFlowTag{macTileTag, Register::Type::Vector, dataType});
+                        auto copyTag = graph.control.addElement(
+                            Assign{Register::Type::Vector, copyExpr, numVGPRs});
+                        auto destMacTileTag = graph.coordinates.addElement(MacroTile());
+                        // macTile is being copied into destMacTile through this assign node
+                        graph.coordinates.addElement(DataFlow(), {macTileTag}, {destMacTileTag});
+                        graph.mapper.connect(copyTag, destMacTileTag, NaryArgument::DEST);
+
+                        auto unrollKSize = getUnrollSize(graph, unrollKDim);
+                        // update the indexes of the associated exchange macrotiles
+                        auto location = graph.coordinates.getLocation(macTileTag);
+                        for(auto const& input : location.incoming)
+                        {
+                            auto edge       = graph.coordinates.getElement(input);
+                            auto maybeIndex = graph.coordinates.get<Index>(input);
+                            if(!maybeIndex.has_value())
+                                continue;
+                            auto exchangeTileTag = only(
+                                graph.coordinates.getNeighbours<Graph::Direction::Upstream>(input));
+                            AssertFatal(exchangeTileTag.has_value());
+                            graph.coordinates.deleteElement(input);
+                            graph.coordinates.addElement(
+                                edge, {exchangeTileTag.value()}, {destMacTileTag});
+
+                            for(auto const c :
+                                graph.mapper.getCoordinateConnections(exchangeTileTag.value()))
+                            {
+                                auto maybeExchange = graph.control.get<Exchange>(c.control);
+                                if(maybeExchange)
+                                {
+                                    auto exchange = c.control;
+                                    replaceWith(
+                                        graph, exchange, graph.control.addElement(NOP()), false);
+                                    exchangePrefetch[subiter].push_back(exchange);
+                                    copy[subiter].push_back(copyTag);
+
+                                    if(subiter == 0)
+                                    {
+                                        auto exchangeDup = duplicateControlNode(graph, exchange);
+                                        exchangePrefetch[unrollKSize].push_back(exchangeDup);
+                                        auto copyDup = duplicateControlNode(graph, copyTag);
+                                        copy[unrollKSize].push_back(copyDup);
+                                    }
+                                    break;
+                                }
+                            }
                         }
                     }
+                    else
+                    {
+                        auto exchanges   = getExchangesForLoad(loadTag, graph);
+                        auto unrollKSize = getUnrollSize(graph, unrollKDim);
+                        for(auto const exchange : exchanges)
+                        {
+                            replaceWith(graph, exchange, graph.control.addElement(NOP()), false);
+                            exchangePrefetch[subiter].push_back(exchange);
 
+                            if(subiter == 0)
+                            {
+                                auto exchangeDup = duplicateControlNode(graph, exchange);
+                                exchangePrefetch[unrollKSize].push_back(exchangeDup);
+                            }
+                        }
+                    }
                     if(subiter < numInFlight.value())
                     {
                         auto               prefetchTopOp  = duplicateChain(graph, {topOp});
@@ -479,12 +552,18 @@ namespace rocRoller
                 insertBefore(graph, prefetchPosition[subiter], preNOP, prev);
             }
 
-            std::cout << exchangePosition.size() << std::endl;
-            std::cout << exchangePrefetch.size() << std::endl;
             for(auto const [subiter, exchangeNodes] : exchangePrefetch)
             {
                 auto preNOP = graph.control.addElement(NOP());
                 auto prev   = preNOP;
+                if(!copy.empty())
+                {
+                    for(auto const c : copy[subiter])
+                    {
+                        graph.control.addElement(Sequence(), {prev}, {c});
+                        prev = c;
+                    }
+                }
                 for(auto const next : exchangeNodes)
                 {
                     graph.control.addElement(Sequence(), {prev}, {next});
