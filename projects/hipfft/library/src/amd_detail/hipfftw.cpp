@@ -19,6 +19,7 @@
 // THE SOFTWARE.
 
 #include "hipfft/hipfftw.h"
+#include "../../../shared/array_validator.h"
 #include "../../../shared/environment.h"
 #include "rocfft/rocfft.h"
 #include <algorithm>
@@ -356,6 +357,74 @@ namespace
         {
             return batch_rank;
         }
+        template <rocfft_transform_type dft_type, rocfft_precision prec>
+        bool is_compatible_for_inplace() const
+        {
+            // Check that the memory location is identical on input an output for the first
+            // element of every leading dimension's sub-array. In order words, using row-major
+            // convention, check that for every integer arrays
+            // {k[0], k[1], ..., k[rank - 2], 0} ":= k" and every
+            // {m[0], m[1], .., m[batch_dim-1]} ":= m" (in applicable ranges), the byte offset
+            // on input, i.e.,
+            // sizeof(hipfftw_user_data_t<dft_type, prec, hipfftw_io_label::INPUT_DATA>)*
+            //      std::inner_product(m.begin(), m.end(), idist.begin(),
+            //                         std::inner_product(k.begin(), k.end(), istrides.begin(), 0))
+            // must be equal to the byte offset on output, i.e.,
+            // sizeof(hipfftw_user_data_t<dft_type, prec, hipfftw_io_label::OUTPUT_DATA>)*
+            //      std::inner_product(m.begin(), m.end(), odist.begin(),
+            //                         std::inner_product(k.begin(), k.end(), ostrides.begin(), 0)).
+            // This requirement translates into the followng element-wise conditions on
+            // idist, odist, istides, and ostides.
+            for(auto batch_dim = 0; batch_dim < batch_rank; batch_dim++)
+            {
+                // 0 <= m[batch_dim] < batches[batch_dim], so the corresponding distance is
+                // irrelevant if batches[batch_dim] == 1.
+                if(batches[batch_dim] == 1)
+                    continue;
+                if(idist[batch_dim]
+                       * sizeof(hipfftw_user_data_t<dft_type, prec, hipfftw_io_label::INPUT_DATA>)
+                   != odist[batch_dim]
+                          * sizeof(
+                              hipfftw_user_data_t<dft_type, prec, hipfftw_io_label::OUTPUT_DATA>))
+                {
+                    return false;
+                }
+            }
+            for(auto dim = 0; dim < rank - 1 /* exclude leading dimension */; dim++)
+            {
+                if(lengths[dim] == 1)
+                    continue;
+                if(istrides[dim]
+                       * sizeof(hipfftw_user_data_t<dft_type, prec, hipfftw_io_label::INPUT_DATA>)
+                   != ostrides[dim]
+                          * sizeof(
+                              hipfftw_user_data_t<dft_type, prec, hipfftw_io_label::OUTPUT_DATA>))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        bool has_unaliased_output_for(rocfft_transform_type dft_type) const
+        {
+            std::vector<size_t> generalized_lengths(rank + batch_rank),
+                generalized_strides(rank + batch_rank);
+            for(auto dim = 0; dim < rank; dim++)
+            {
+                generalized_lengths[dim]
+                    = dft_type == rocfft_transform_type_real_forward && dim == rank - 1
+                          ? lengths[dim] / 2 + 1
+                          : lengths[dim];
+                generalized_strides[dim] = ostrides[dim];
+            }
+            for(auto batch_dim = 0; batch_dim < batch_rank; batch_dim++)
+            {
+                generalized_lengths[rank + batch_dim] = batches[batch_dim];
+                generalized_strides[rank + batch_dim] = odist[batch_dim];
+            }
+            return array_valid(generalized_lengths, generalized_strides);
+        }
     };
 
     template <rocfft_precision prec,
@@ -503,56 +572,13 @@ namespace
                                  ? rocfft_placement_inplace
                                  : rocfft_placement_notinplace;
             plan_dft_type  = dft_type;
+            if(!data_layout.has_unaliased_output_for(plan_dft_type))
+                throw hipfftw_invalid_arg("aliased output data layouts are not accepted.");
             if(plan_placement == rocfft_placement_inplace)
             {
-                // Check that the memory location is identical on input an output for the first
-                // element of every leading dimension's sub-array. In order words, using row-major
-                // convention, check that for every integer arrays
-                // {k[0], k[1], ..., k[rank - 2], 0} ":= k" and every
-                // {m[0], m[1], .., m[batch_dim-1]} ":= m" (in applicable ranges), the byte offset
-                // on input, i.e.,
-                // sizeof(hipfftw_user_data_t<dft_type, prec, hipfftw_io_label::INPUT_DATA>)*
-                //      std::inner_product(m.begin(), m.end(), idist.begin(),
-                //                         std::inner_product(k.begin(), k.end(), istrides.begin(), 0))
-                // must be equal to the byte offset on output, i.e.,
-                // sizeof(hipfftw_user_data_t<dft_type, prec, hipfftw_io_label::OUTPUT_DATA>)*
-                //      std::inner_product(m.begin(), m.end(), odist.begin(),
-                //                         std::inner_product(k.begin(), k.end(), ostrides.begin(), 0)).
-                // This requirement translates into the followng element-wise conditions on
-                // idist, odist, istides, and ostides.
-                for(auto batch_dim = 0; batch_dim < batch_rank; batch_dim++)
-                {
-                    // 0 <= m[batch_dim] < batch[batch_dim], so the corresponding distance is
-                    // irrelevant if batch[batch_dim] == 1.
-                    if(data_layout.batches[batch_dim] == 1)
-                        continue;
-                    if(data_layout.idist[batch_dim]
-                           * sizeof(
-                               hipfftw_user_data_t<dft_type, prec, hipfftw_io_label::INPUT_DATA>)
-                       != data_layout.odist[batch_dim]
-                              * sizeof(hipfftw_user_data_t<dft_type,
-                                                           prec,
-                                                           hipfftw_io_label::OUTPUT_DATA>))
-                        throw hipfftw_invalid_arg("distances rejected for in-place configuration.");
-                }
-                for(auto dim = 0; dim < rank - 1 /* exclude leading dimension */; dim++)
-                {
-                    if(data_layout.lengths[dim] == 1)
-                        continue;
-                    if(data_layout.istrides[dim]
-                           * sizeof(
-                               hipfftw_user_data_t<dft_type, prec, hipfftw_io_label::INPUT_DATA>)
-                       != data_layout.ostrides[dim]
-                              * sizeof(hipfftw_user_data_t<dft_type,
-                                                           prec,
-                                                           hipfftw_io_label::OUTPUT_DATA>))
-                    {
-                        throw hipfftw_invalid_arg("strides rejected for in-place configuration..");
-                    }
-                }
+                if(!data_layout.template is_compatible_for_inplace<dft_type, prec>())
+                    throw hipfftw_invalid_arg("data layout rejected for in-place configuration.");
             }
-            // TODO (required when user-defined strides/distances may be used): add validity check
-            // on strides and distances for non-aliasing data
 
             // Generalized input are validated... Let's initialize the plan!
             init_rocfft(); // "magic" common to all template specializations
