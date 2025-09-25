@@ -569,12 +569,12 @@ namespace rocRoller
                 {
                     mergeLoadsByUnroll(unroll0, unroll1, unroll2, factorMN, factorMN);
                     mergeLoadsByUnroll(unroll1, unroll0, unroll2, factorK, macKUnrollSize);
-                    mergeLoadsByUnroll(unroll2,
+                    /*mergeLoadsByUnroll(unroll2,
                                        unroll1,
                                        unroll0,
                                        unrollKSize,
                                        unrollKSize,
-                                       macKUnrollSize / factorK);
+                                       macKUnrollSize / factorK);*/
                 }
             }
             if(arg == NaryArgument::RHS_SCALE)
@@ -588,12 +588,12 @@ namespace rocRoller
                 {
                     mergeLoadsByUnroll(unroll1, unroll0, unroll2, factorMN, factorMN);
                     mergeLoadsByUnroll(unroll0, unroll1, unroll2, factorK, macKUnrollSize);
-                    mergeLoadsByUnroll(unroll2,
+                    /*mergeLoadsByUnroll(unroll2,
                                        unroll0,
                                        unroll1,
                                        unrollKSize,
                                        unrollKSize,
-                                       macKUnrollSize / factorK);
+                                       macKUnrollSize / factorK);*/
                 }
             }
 
@@ -610,10 +610,6 @@ namespace rocRoller
                 return;
             }
 
-            auto sampleLoad     = scaleLoads.begin()->first;
-            auto unrollK        = graph.mapper.get<Unroll>(sampleLoad, 2);
-            auto forKUnrollSize = getUnrollSize(graph, unrollK);
-
             auto colouring = colourByUnrollValue(graph);
 
             auto loadUnrollMap = filterLoadUnrollColouring(colouring, scaleLoads);
@@ -625,7 +621,7 @@ namespace rocRoller
             if(mergeables.empty())
                 return;
 
-            sampleLoad = mergeables.begin()->first;
+            auto sampleLoad = mergeables.begin()->first;
             auto [loadConnections, exchangeConnections, unrollReindexMap]
                 = addSwizzleLoadCT(graph, context, sampleLoad, arg);
 
