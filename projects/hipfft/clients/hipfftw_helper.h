@@ -21,6 +21,7 @@
 #ifndef HIPFFTW_HELPER_H
 #define HIPFFTW_HELPER_H
 
+#include "../shared/array_validator.h"
 #include "../shared/environment.h"
 #include "../shared/fft_params.h"
 #include <algorithm>
@@ -1502,12 +1503,38 @@ public:
         if(!hipfftw_creation_options_are_well_defined(creation_options))
             throw std::invalid_argument("invalid creation_options for is_valid_for_creation_with");
 
-        return has_valid_rank(creation_options) && has_valid_lengths() && has_valid_sign()
-               && has_valid_flags() && has_valid_batch_rank(creation_options) && has_valid_batches()
-               && has_valid_strides(fft_io::fft_io_in, creation_options)
-               && has_valid_strides(fft_io::fft_io_out, creation_options)
-               && has_valid_distances(fft_io::fft_io_in) && has_valid_distances(fft_io::fft_io_out)
-               && can_use_creation_options(creation_options);
+        auto ret = has_valid_rank(creation_options) && has_valid_lengths() && has_valid_sign()
+                   && has_valid_flags() && has_valid_batch_rank(creation_options)
+                   && has_valid_batches() && has_valid_strides(fft_io::fft_io_in, creation_options)
+                   && has_valid_strides(fft_io::fft_io_out, creation_options)
+                   && has_valid_distances(fft_io::fft_io_in)
+                   && has_valid_distances(fft_io::fft_io_out)
+                   && can_use_creation_options(creation_options);
+        // If output data layout is entirely defined by non-negative values (hence not "unsupported"),
+        // also check that the output data layout is not self-aliasing
+        if(ret && vector_has_valid_values_as<ptrdiff_t>(lengths, rank, 1)
+           && vector_has_valid_values_as<ptrdiff_t>(ostrides, rank, 1)
+           && vector_has_valid_values_as<ptrdiff_t>(batches, batch_rank, 1)
+           && vector_has_valid_values_as<ptrdiff_t>(odist, batch_rank, 1))
+        {
+            const size_t        gen_size = lengths.size() + batches.size();
+            std::vector<size_t> gen_len(gen_size), gen_strides(gen_size);
+            for(auto dim = lengths.size(); dim-- > 0;)
+            {
+                gen_len[dim]
+                    = dft_kind == fft_transform_type_real_forward && dim == lengths.size() - 1
+                          ? lengths[dim] / 2 + 1
+                          : lengths[dim];
+                gen_strides[dim] = ostrides[dim];
+            }
+            for(auto batch_dim = batches.size(); batch_dim-- > 0;)
+            {
+                gen_len[lengths.size() + batch_dim]     = batches[batch_dim];
+                gen_strides[lengths.size() + batch_dim] = odist[batch_dim];
+            }
+            ret = array_valid(gen_len, gen_strides);
+        }
+        return ret;
     }
     bool is_valid_for_creation() const
     {

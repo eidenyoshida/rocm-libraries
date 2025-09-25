@@ -1315,6 +1315,35 @@ namespace
         return ret;
     }
 
+    std::vector<std::vector<ptrdiff_t>>
+        arg_validation_dist_range_many_dft(const std::vector<ptrdiff_t>& batches,
+                                           const std::vector<ptrdiff_t>& nembed,
+                                           const ptrdiff_t&              stride,
+                                           ptrdiff_t (*random_dist_func)())
+    {
+        std::vector<std::vector<ptrdiff_t>> ret;
+        std::vector<ptrdiff_t>              to_add(batches.size());
+        if(batches.size() == 1 && !nembed.empty())
+        {
+            // add a value that will always be valid for valid nembed and stride
+            to_add[0] = product(nembed.begin(), nembed.end()) * stride;
+        }
+        else
+        {
+            for(auto& tmp : to_add)
+                tmp = random_dist_func();
+        }
+        ret.emplace_back(to_add);
+        if(batches.size() == 1 && batches[0] > stride)
+        {
+            // add an aliasing layout
+            to_add[0] = 1;
+            ret.emplace_back(to_add);
+        }
+
+        return ret;
+    }
+
     std::vector<int> arg_validation_sign_range(fft_transform_type test_dft_type)
     {
         std::vector<int> ret = {get_random_sign<valid_value>(test_dft_type)};
@@ -1439,7 +1468,6 @@ namespace
             return dist_rng(get_pseudo_rng());
         };
 
-        // istrides, ostrides, idist, odist
         for(auto dft_kind : trans_type_range_full)
         {
             for(auto rank : arg_validation_runtime_rank_range())
@@ -1447,8 +1475,6 @@ namespace
                 for(const auto& batches : arg_validation_strictly_positive_vec_range(
                         batch_rank, max_nbatch_for_hipfftw_test))
                 {
-                    std::vector<ptrdiff_t> idist(batches.size());
-                    std::vector<ptrdiff_t> odist(batches.size());
                     for(auto placement : place_range)
                     {
                         const bool is_real_ip
@@ -1521,38 +1547,40 @@ namespace
                                                 = compute_strides_from_nembed(inembed, istride);
                                             const auto ostrides
                                                 = compute_strides_from_nembed(onembed, ostride);
-                                            if(batches.size() == 1 && !lengths.empty())
-                                            {
-                                                idist[0] = istrides.front() * inembed.front();
-                                                odist[0] = ostrides.front() * onembed.front();
-                                            }
-                                            else
-                                            {
-                                                for(auto& tmp : idist)
-                                                    tmp = get_random_dist();
-                                                for(auto& tmp : odist)
-                                                    tmp = get_random_dist();
-                                            }
+                                            const auto idist_range
+                                                = arg_validation_dist_range_many_dft(
+                                                    batches, inembed, istride, get_random_dist);
+                                            const auto odist_range
+                                                = arg_validation_dist_range_many_dft(
+                                                    batches, onembed, ostride, get_random_dist);
 
-                                            for(auto sign : arg_validation_sign_range(dft_kind))
+                                            for(const auto& idist : idist_range)
                                             {
-                                                for(auto flags :
-                                                    arg_validation_flags_range(dft_kind, rank))
+                                                for(const auto& odist : odist_range)
                                                 {
-                                                    hipfftw_helper<prec> helper_to_add;
-                                                    helper_to_add.set_creation_args(dft_kind,
-                                                                                    rank,
-                                                                                    lengths,
-                                                                                    placement,
-                                                                                    sign,
-                                                                                    flags,
-                                                                                    istrides,
-                                                                                    ostrides,
-                                                                                    batch_rank,
-                                                                                    batches,
-                                                                                    idist,
-                                                                                    odist);
-                                                    ret.emplace_back(helper_to_add);
+                                                    for(auto sign :
+                                                        arg_validation_sign_range(dft_kind))
+                                                    {
+                                                        for(auto flags : arg_validation_flags_range(
+                                                                dft_kind, rank))
+                                                        {
+                                                            hipfftw_helper<prec> helper_to_add;
+                                                            helper_to_add.set_creation_args(
+                                                                dft_kind,
+                                                                rank,
+                                                                lengths,
+                                                                placement,
+                                                                sign,
+                                                                flags,
+                                                                istrides,
+                                                                ostrides,
+                                                                batch_rank,
+                                                                batches,
+                                                                idist,
+                                                                odist);
+                                                            ret.emplace_back(helper_to_add);
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
