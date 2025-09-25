@@ -421,7 +421,7 @@ class Solution(collections.abc.Mapping):
 
     # Disable General WGM for now, since current XCC reordering code assume power of 2 CUs
     if (state["ISA"] != (9, 5, 0)):
-      state["UseGeneralWGM"] = 0
+      state["SpaceFillingAlgo"] = 0
 
     # done
     state["AssignedProblemIndependentDerivedParameters"] = True
