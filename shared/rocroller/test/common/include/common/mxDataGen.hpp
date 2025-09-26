@@ -188,7 +188,10 @@ namespace rocRoller
                    bool                    hasScaleB      = false,
                    float                   min            = -1.f,
                    float                   max            = 1.f,
-                   const uint              scaleBlockSize = 32
+                   const uint              scaleBlockSize = 32,
+                   DataPattern             patternA       = Bounded,
+                   DataPattern             patternB       = Bounded,
+                   DataPattern             patternC       = Bounded
 
     )
     {
@@ -225,8 +228,11 @@ namespace rocRoller
                    TensorDescriptor& descB,
                    std::vector<TC>&  hostC,
                    TensorDescriptor& descC,
-                   float             min = -1.f,
-                   float             max = 1.f)
+                   float             min      = -1.f,
+                   float             max      = 1.f,
+                   DataPattern       patternA = Bounded,
+                   DataPattern       patternB = Bounded,
+                   DataPattern       patternC = Bounded)
     {
         std::vector<uint8_t> defaultHostScaleA;
         std::vector<uint8_t> defaultHostScaleB;
@@ -242,6 +248,9 @@ namespace rocRoller
                   false,
                   false,
                   min,
-                  max);
+                  max,
+                  patternA,
+                  patternB,
+                  patternC);
     }
 }

@@ -24,6 +24,7 @@
  *
  *******************************************************************************/
 
+#include "DataGenerator.hpp"
 #include <filesystem>
 
 #ifdef ROCROLLER_USE_HIP
@@ -195,11 +196,23 @@ namespace rocRoller::Client::GEMMClient
                       problemParams.types.scaleB == Operations::ScaleMode::Separate,
                       -1.f,
                       1.f,
-                      static_cast<uint>(scaleBlockSize));
+                      static_cast<uint>(scaleBlockSize),
+                      problemParams.patternA,
+                      problemParams.patternB,
+                      problemParams.patternC);
         }
         else
         {
-            DGenInput(seed, hostA, descA, hostB, descB, hostC, descC);
+            DGenInput(seed,
+                      hostA,
+                      descA,
+                      hostB,
+                      descB,
+                      hostC,
+                      descC,
+                      problemParams.patternA,
+                      problemParams.patternB,
+                      problemParams.patternC);
         }
 
         auto deviceA = make_shared_device(hostA);
