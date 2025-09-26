@@ -515,11 +515,11 @@ namespace DGen
                 {
                     if(no_neg && min != 0)
                     {
-                        mantissa_dist_min = man_of_min >> (52 - dataMantissaBits);
+                        mantissa_dist_min = man_of_min >> (F64MANTISSABITS - dataMantissaBits);
                     }
                     else if(no_pos && max != 0)
                     {
-                        mantissa_dist_min = man_of_max >> (52 - dataMantissaBits);
+                        mantissa_dist_min = man_of_max >> (F64MANTISSABITS - dataMantissaBits);
                     }
                 }
 
@@ -541,7 +541,8 @@ namespace DGen
 
                 if(ub_exp + ub_block_scale == (sign ? max_neg_exp : max_pos_exp))
                 {
-                    mantissa_dist_max = (sign ? man_of_min : man_of_max) >> (52 - dataMantissaBits);
+                    mantissa_dist_max
+                        = (sign ? man_of_min : man_of_max) >> (F64MANTISSABITS - dataMantissaBits);
                 }
 
                 if(ub_exp == dtype_max_norm_biased_exp)
@@ -669,7 +670,7 @@ namespace DGen
 
                 if(ub_exp + ub_block_scale == max_exp)
                 {
-                    mantissa_dist_max = man_of_max >> (52 - dataMantissaBits);
+                    mantissa_dist_max = man_of_max >> (F64MANTISSABITS - dataMantissaBits);
                 }
 
                 if(ub_exp == dtype_max_norm_biased_exp)
@@ -797,6 +798,8 @@ namespace DGen
     template <typename DTYPE>
     void DataGenerator<DTYPE>::generate_pattern_trigonometric(const std::vector<index_t>& size)
     {
+        using namespace Constants;
+
         // setup
         const auto dataBias          = static_cast<int32_t>(getDataBias<DTYPE>());
         const auto dataMantissaBits  = getDataMantissaBits<DTYPE>();
@@ -875,7 +878,8 @@ namespace DGen
                         //  - get bits that fit in mantissa
                         //  - set implied 1
                         //  - shift remaining exponent
-                        uint64_t res_mantissa = value_mantissa >> (53 - dataMantissaBits);
+                        uint64_t res_mantissa
+                            = value_mantissa >> (F64MANTISSABITS + 1 - dataMantissaBits);
                         res_mantissa |= ONE << (dataMantissaBits - 1);
                         res_mantissa
                             >>= scaleUnbiasedEMin + dataUnbiasedEMin - value_unbiased_exp - 1;
@@ -908,7 +912,7 @@ namespace DGen
                                   << dataMantissaBits;
 
                         // set mantissa (round to zero)
-                        result |= value_mantissa >> (52 - dataMantissaBits);
+                        result |= value_mantissa >> (F64MANTISSABITS - dataMantissaBits);
                     }
                 }
 
@@ -953,6 +957,8 @@ namespace DGen
     template <typename DTYPE>
     void DataGenerator<DTYPE>::generate_pattern_normal(const std::vector<index_t>& size)
     {
+        using namespace Constants;
+
         // setup
         const auto dataBias          = static_cast<int32_t>(getDataBias<DTYPE>());
         const auto dataMantissaBits  = getDataMantissaBits<DTYPE>();
@@ -1028,7 +1034,8 @@ namespace DGen
                         //  - get bits that fit in mantissa
                         //  - set implied 1
                         //  - shift remaining exponent
-                        uint64_t res_mantissa = value_mantissa >> (53 - dataMantissaBits);
+                        uint64_t res_mantissa
+                            = value_mantissa >> (F64MANTISSABITS + 1 - dataMantissaBits);
                         res_mantissa |= ONE << (dataMantissaBits - 1);
                         res_mantissa
                             >>= scaleUnbiasedEMin + dataUnbiasedEMin - value_unbiased_exp - 1;
@@ -1061,7 +1068,7 @@ namespace DGen
                                   << dataMantissaBits;
 
                         // set mantissa (round to zero)
-                        result |= value_mantissa >> (52 - dataMantissaBits);
+                        result |= value_mantissa >> (F64MANTISSABITS - dataMantissaBits);
                     }
                 }
 
