@@ -373,6 +373,8 @@ namespace rocRoller
             //constexpr std::suspend_always yield_value(std::initializer_list<T> r) noexcept;
             auto yield_value(std::initializer_list<T> r) noexcept;
 
+            auto yield_value(Generator<T>&& r) noexcept;
+
             /****
              * Implementation & Interface
              ****/
@@ -386,11 +388,15 @@ namespace rocRoller
             void discard_value();
             void advance_range();
 
-	    void advance();
+            void advance();
 
         private:
-            mutable std::optional<T>  m_value;
-            std::unique_ptr<Range<T>> m_range;
+            mutable std::optional<T> m_value;
+
+            using Handle = std::coroutine_handle<promise_type>;
+            mutable Handle m_coroutine;
+
+            //std::unique_ptr<Range<T>> m_range;
 
             mutable std::exception_ptr m_exception = nullptr;
         };
@@ -444,7 +450,7 @@ namespace rocRoller
             GeneratorState state() const;
 
             //std::optional<T> m_value;
-            mutable Handle   m_coroutine;
+            mutable Handle m_coroutine;
         };
 
         using iterator   = std::common_iterator<Iterator, std::default_sentinel_t>;
