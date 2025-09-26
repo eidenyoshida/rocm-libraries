@@ -953,8 +953,6 @@ namespace DGen
     template <typename DTYPE>
     void DataGenerator<DTYPE>::generate_pattern_normal(const std::vector<index_t>& size)
     {
-        using namespace Constants;
-
         // setup
         const auto dataBias          = static_cast<int32_t>(getDataBias<DTYPE>());
         const auto dataMantissaBits  = getDataMantissaBits<DTYPE>();
@@ -963,48 +961,142 @@ namespace DGen
         const auto scaleBias         = getScaleBias<DTYPE>();
         const auto scaleUnbiasedEMin = getScaleUnBiasedEMin<DTYPE>();
         const auto min_exp = scaleUnbiasedEMin + dataUnbiasedEMin - dataMantissaBits /*subnormal*/;
-        const auto max_exp = getDataUnBiasedEMax<DTYPE>();
-
-        if(m_options.clampToF32)
-        {
-            max_exp = std::min(F32MAXEXP, max_exp);
-        }
 
         const auto block_size = (isScaled<DTYPE>() ? m_options.blockScaling : 1);
 
-        std::normal_distribution normal_dist{0.0, 1.0};
+        std::normal_distribution<> normal_dist{0.0, 1.0};
 
         const auto numBlocks = m_dataDesc.array_size / block_size;
 
 #pragma omp parallel for num_threads(m_num_threads)
         for(index_t scale_i = 0; scale_i < numBlocks; scale_i++)
         {
-            const auto tid = omp_get_thread_num();
-
-            std::vector<float> float_data((isScaled<DTYPE>() ? block_size : 0), 0);
-            float              max_value = -std::numeric_limits<float>::max();
-
-            for(index_t block_i = 0; block_i < block_size; block_i++)
-            {
-                // Generate a random FP32 scalar and add it to the vector
-                const float value      = normal_dist(m_gen[tid]);
-                max_value              = std::max(max_value, value);
-                float_data.at(block_i) = value;
-            }
-
-            // Now we have a vector of normally distributed scalar FP32s that we can convert into an MX block
-            const auto    shared_exp = std::floor(std::log2(std::abs(max_value))) - max_exp;
-            const int32_t scale      = std::exp(2, shared_exp);
-            std::memcpy(&m_scaleBytes[scale_i], &scale, m_scaleDesc.byte_size);
+            const auto            tid = omp_get_thread_num();
+            std::vector<uint64_t> temp_data((isScaled<DTYPE>() ? block_size : 0), 0);
+            std::vector<uint32_t> temp_scale((isScaled<DTYPE>() ? block_size : 0), 0);
 
             for(index_t block_i = 0; block_i < block_size; block_i++)
             {
-                const float float_value  = float_data.at(block_i);
-                const float scaled_float = float_value / scale;
-                const DTYPE result       = static_cast<DTYPE>(scaled_float);
-                auto        data_i       = scale_i * block_size + block_i;
-                std::memcpy(
-                    &m_dataBytes[data_i * m_dataDesc.byte_size], &result, m_dataDesc.byte_size);
+                //
+                // compute index
+                //
+                index_t data_i = scale_i * block_size + block_i;
+
+                //
+                // generate random block
+                //
+
+                // generate value according to normal distribution
+                auto value = normal_dist(m_gen[tid]);
+
+                value = m_options.clampToF32 ? static_cast<float>(value) : value;
+
+                // split input
+                uint8_t  value_sign;
+                uint32_t value_biased_exp;
+                uint64_t value_mantissa;
+                split_double(value, &value_sign, &value_biased_exp, &value_mantissa);
+
+                const int32_t value_unbiased_exp = value_biased_exp - Constants::F64BIAS;
+
+                // value magnitude must be less than 1;
+                if(value_unbiased_exp > 0)
+                    throw std::runtime_error("Internal Error");
+
+                uint32_t scale = scaleBias;
+
+                // set sign
+                uint64_t result = value_sign ? (ONE << (dataExponentBits + dataMantissaBits)) : 0;
+
+                // if subnormal -> return 0
+
+                // if normal but less than representable range with scale -> return 0
+
+                // within representable range
+                if(value_unbiased_exp >= static_cast<int32_t>(min_exp))
+                {
+                    // subnormal
+                    if(value_unbiased_exp < scaleUnbiasedEMin + dataUnbiasedEMin)
+                    {
+                        // set biased scale
+                        scale = scaleUnbiasedEMin + scaleBias;
+
+                        // set exponent -> biased exp = 0
+
+                        // set mantissa (round to zero)
+                        // get bits from (data_info.unBiasedEMin - 1) to (data_info.unBiasedEMin - data_info.mantissaBits)
+                        //  - get bits that fit in mantissa
+                        //  - set implied 1
+                        //  - shift remaining exponent
+                        uint64_t res_mantissa = value_mantissa >> (53 - dataMantissaBits);
+                        res_mantissa |= ONE << (dataMantissaBits - 1);
+                        res_mantissa
+                            >>= scaleUnbiasedEMin + dataUnbiasedEMin - value_unbiased_exp - 1;
+
+                        result |= res_mantissa;
+                    }
+                    else
+                    {
+                        // set biased scale and adjust exponent s.t. exponent = 0 if possible
+                        int32_t scaled_exp;
+                        if(value_unbiased_exp < scaleUnbiasedEMin)
+                        {
+                            scale      = scaleUnbiasedEMin + scaleBias;
+                            scaled_exp = value_unbiased_exp - scaleUnbiasedEMin;
+                        }
+                        else if(value_unbiased_exp < 0)
+                        {
+                            scale      = value_unbiased_exp + scaleBias;
+                            scaled_exp = 0;
+                        }
+                        else
+                        {
+                            scale      = scaleBias;
+                            scaled_exp = value_unbiased_exp;
+                        }
+
+                        // set exponent
+                        const uint32_t result_exp = static_cast<uint32_t>(scaled_exp + dataBias);
+                        result |= (result_exp & ((ONE << dataExponentBits) - 1))
+                                  << dataMantissaBits;
+
+                        // set mantissa (round to zero)
+                        result |= value_mantissa >> (52 - dataMantissaBits);
+                    }
+                }
+
+                if constexpr(isScaled<DTYPE>())
+                {
+                    temp_data[block_i]  = result;
+                    temp_scale[block_i] = scale;
+                }
+                else
+                {
+                    std::memcpy(
+                        &m_dataBytes[data_i * m_dataDesc.byte_size], &result, m_dataDesc.byte_size);
+                }
+
+                //
+                // Compute block scale and adjust data values
+                //
+                if constexpr(isScaled<DTYPE>())
+                {
+                    if(block_i == block_size - 1)
+                    {
+                        const uint32_t block_scale
+                            = dispatch_scale_block(temp_scale, temp_data, block_size);
+
+                        // Write to array
+                        for(index_t i = 0; i < block_size; i++)
+                        {
+                            std::memcpy(
+                                &m_dataBytes[(scale_i * block_size + i) * m_dataDesc.byte_size],
+                                &temp_data[i],
+                                m_dataDesc.byte_size);
+                        }
+                        std::memcpy(&m_scaleBytes[scale_i], &block_scale, m_scaleDesc.byte_size);
+                    }
+                }
             }
         }
         post_sprinkle(size, isScaled<DTYPE>() ? -Constants::F64BIAS : -Constants::F32BIAS);
