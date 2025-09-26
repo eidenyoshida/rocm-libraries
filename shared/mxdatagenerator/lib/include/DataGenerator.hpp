@@ -29,7 +29,9 @@
 #include "dataTypeInfo.hpp"
 #include "data_generation_utils.hpp"
 
+#include <cmath>
 #include <limits>
+#include <random>
 #include <thread>
 
 #include <omp.h>
@@ -47,6 +49,7 @@ namespace DGen
         BoundedAlternatingSign,
         Unbounded,
         Trigonometric,
+        Normal,
         Identity,
         Ones,
         Zeros
@@ -71,7 +74,7 @@ namespace DGen
         double      max     = 1.0;
 
         DataScaling scaling      = DataScaling::Mean;
-        index_t         blockScaling = 1;
+        index_t     blockScaling = 1;
     };
 
     template <typename DTYPE>
@@ -82,8 +85,8 @@ namespace DGen
 
         using Generator = std::mt19937;
         // generate internal byte buffers/
-        DataGenerator& generate(std::vector<index_t>            size,
-                                std::vector<index_t>            stride,
+        DataGenerator& generate(std::vector<index_t>        size,
+                                std::vector<index_t>        stride,
                                 DataGeneratorOptions const& options);
 
         // get packed data byte buffer.
@@ -128,6 +131,7 @@ namespace DGen
         void generate_pattern_bounded_alternating_sign(const std::vector<index_t>& size);
         void generate_pattern_unbounded(const std::vector<index_t>& size);
         void generate_pattern_trigonometric(const std::vector<index_t>& size);
+        void generate_pattern_normal(const std::vector<index_t>& size);
         void generate_pattern_identity(const std::vector<index_t>& size,
                                        const std::vector<index_t>& stride);
         void generate_pattern_ones();
@@ -137,10 +141,10 @@ namespace DGen
 
         uint32_t scale_block_mean(const std::vector<uint32_t>& scales,
                                   std::vector<uint64_t>&       data,
-                                  index_t                          block_size);
+                                  index_t                      block_size);
         uint32_t dispatch_scale_block(const std::vector<uint32_t>& scales,
                                       std::vector<uint64_t>&       data,
-                                      index_t                          block_size);
+                                      index_t                      block_size);
 
         void post_sprinkle(const std::vector<index_t>& size, int32_t unbiased_min_exp);
 
@@ -154,8 +158,8 @@ namespace DGen
     }
 
     template <typename DTYPE>
-    inline DataGenerator<DTYPE>& DataGenerator<DTYPE>::generate(std::vector<index_t>            size,
-                                                                std::vector<index_t>            stride,
+    inline DataGenerator<DTYPE>& DataGenerator<DTYPE>::generate(std::vector<index_t>        size,
+                                                                std::vector<index_t>        stride,
                                                                 DataGeneratorOptions const& options)
     {
         if(size.size() != stride.size())
@@ -168,10 +172,10 @@ namespace DGen
         m_options = options;
 
         // reorder sizes & strides from least to greatest stride
-        const auto          n_size = size.size();
+        const auto           n_size = size.size();
         std::vector<index_t> perm(n_size);
-        std::vector<index_t>    sorted_size(n_size);
-        std::vector<index_t>    sorted_stride(n_size);
+        std::vector<index_t> sorted_size(n_size);
+        std::vector<index_t> sorted_stride(n_size);
 
         std::iota(perm.begin(), perm.end(), 0);
         std::sort(perm.begin(), perm.end(), [&](auto a, auto b) { return stride[a] < stride[b]; });
@@ -252,7 +256,7 @@ namespace DGen
 
         const auto block_size = (isScaled<DTYPE>() ? m_options.blockScaling : 1);
 
-        #pragma omp parallel for num_threads(m_num_threads)
+#pragma omp parallel for num_threads(m_num_threads)
         for(index_t i = 0; i < m_dataDesc.array_size; i++)
         {
             const auto scale_idx = i / block_size;
@@ -269,7 +273,7 @@ namespace DGen
 
         const auto block_size = (isScaled<DTYPE>() ? m_options.blockScaling : 1);
 
-        #pragma omp parallel for num_threads(m_num_threads)
+#pragma omp parallel for num_threads(m_num_threads)
         for(index_t i = 0; i < m_dataDesc.array_size; i++)
         {
             const auto scale_idx = i / block_size;
@@ -947,6 +951,66 @@ namespace DGen
     }
 
     template <typename DTYPE>
+    void DataGenerator<DTYPE>::generate_pattern_normal(const std::vector<index_t>& size)
+    {
+        using namespace Constants;
+
+        // setup
+        const auto dataBias          = static_cast<int32_t>(getDataBias<DTYPE>());
+        const auto dataMantissaBits  = getDataMantissaBits<DTYPE>();
+        const auto dataExponentBits  = getDataExponentBits<DTYPE>();
+        const auto dataUnbiasedEMin  = getDataUnBiasedEMin<DTYPE>();
+        const auto scaleBias         = getScaleBias<DTYPE>();
+        const auto scaleUnbiasedEMin = getScaleUnBiasedEMin<DTYPE>();
+        const auto min_exp = scaleUnbiasedEMin + dataUnbiasedEMin - dataMantissaBits /*subnormal*/;
+        const auto max_exp = getDataUnBiasedEMax<DTYPE>();
+
+        if(m_options.clampToF32)
+        {
+            max_exp = std::min(F32MAXEXP, max_exp);
+        }
+
+        const auto block_size = (isScaled<DTYPE>() ? m_options.blockScaling : 1);
+
+        std::normal_distribution normal_dist{0.0, 1.0};
+
+        const auto numBlocks = m_dataDesc.array_size / block_size;
+
+#pragma omp parallel for num_threads(m_num_threads)
+        for(index_t scale_i = 0; scale_i < numBlocks; scale_i++)
+        {
+            const auto tid = omp_get_thread_num();
+
+            std::vector<float> float_data((isScaled<DTYPE>() ? block_size : 0), 0);
+            float              max_value = -std::numeric_limits<float>::max();
+
+            for(index_t block_i = 0; block_i < block_size; block_i++)
+            {
+                // Generate a random FP32 scalar and add it to the vector
+                const float value      = normal_dist(m_gen[tid]);
+                max_value              = std::max(max_value, value);
+                float_data.at(block_i) = value;
+            }
+
+            // Now we have a vector of normally distributed scalar FP32s that we can convert into an MX block
+            const auto    shared_exp = std::floor(std::log2(std::abs(max_value))) - max_exp;
+            const int32_t scale      = std::exp(2, shared_exp);
+            std::memcpy(&m_scaleBytes[scale_i], &scale, m_scaleDesc.byte_size);
+
+            for(index_t block_i = 0; block_i < block_size; block_i++)
+            {
+                const float float_value  = float_data.at(block_i);
+                const float scaled_float = float_value / scale;
+                const DTYPE result       = static_cast<DTYPE>(scaled_float);
+                auto        data_i       = scale_i * block_size + block_i;
+                std::memcpy(
+                    &m_dataBytes[data_i * m_dataDesc.byte_size], &result, m_dataDesc.byte_size);
+            }
+        }
+        post_sprinkle(size, isScaled<DTYPE>() ? -Constants::F64BIAS : -Constants::F32BIAS);
+    }
+
+    template <typename DTYPE>
     void DataGenerator<DTYPE>::generate_pattern_identity(const std::vector<index_t>& size,
                                                          const std::vector<index_t>& stride)
     {
@@ -1014,6 +1078,8 @@ namespace DGen
             return generate_pattern_unbounded(size);
         case Trigonometric:
             return generate_pattern_trigonometric(size);
+        case Normal:
+            return generate_pattern_normal(size);
         case Identity:
             return generate_pattern_identity(size, stride);
         case Ones:
@@ -1026,7 +1092,7 @@ namespace DGen
     template <typename DTYPE>
     inline uint32_t DataGenerator<DTYPE>::scale_block_mean(const std::vector<uint32_t>& scales,
                                                            std::vector<uint64_t>&       data,
-                                                           index_t                          block_size)
+                                                           index_t                      block_size)
     {
         const auto dataBias         = static_cast<int32_t>(getDataBias<DTYPE>());
         const auto dataMantissaBits = getDataMantissaBits<DTYPE>();
@@ -1038,8 +1104,8 @@ namespace DGen
         //
         // compute block scale
         //
-        double avg_scale = 0.0;
-        index_t    n         = 0;
+        double  avg_scale = 0.0;
+        index_t n         = 0;
         for(index_t i = 0; i < static_cast<index_t>(block_size); i++)
         {
             auto s = scales[i];
@@ -1178,7 +1244,7 @@ namespace DGen
     template <typename DTYPE>
     uint32_t DataGenerator<DTYPE>::dispatch_scale_block(const std::vector<uint32_t>& scales,
                                                         std::vector<uint64_t>&       data,
-                                                        index_t                          block_size)
+                                                        index_t                      block_size)
     {
         switch(m_options.scaling)
         {
@@ -1190,7 +1256,8 @@ namespace DGen
     }
 
     template <typename DTYPE>
-    void DataGenerator<DTYPE>::post_sprinkle(const std::vector<index_t>& size, int32_t unbiased_min_exp)
+    void DataGenerator<DTYPE>::post_sprinkle(const std::vector<index_t>& size,
+                                             int32_t                     unbiased_min_exp)
     {
         const auto block_size = (isScaled<DTYPE>() ? m_options.blockScaling : 1);
 
@@ -1227,13 +1294,13 @@ namespace DGen
             bool has_sbn                  = false;
 
             std::vector<bool> marked(clmp_block_size);
-            index_t            marked_count = 0;
-            index_t            block_data_i = 0;
+            index_t           marked_count = 0;
+            index_t           block_data_i = 0;
 
             for(index_t clmp_block_i = 0; clmp_block_i < clmp_block_size; clmp_block_i++)
             {
                 const auto data_i  = clmp_i * clmp_block_size + clmp_block_i;
-                index_t     scale_i = (data_i / block_size);
+                index_t    scale_i = (data_i / block_size);
 
                 // reset
                 if(clmp_block_i == 0)
