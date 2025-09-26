@@ -51,6 +51,24 @@ typedef float  fftwf_complex[2];
 #define FFTW_FORWARD (-1)
 #define FFTW_BACKWARD (1)
 
+struct hipfftw_iodim64
+{
+    ptrdiff_t n;
+    ptrdiff_t is;
+    ptrdiff_t os;
+};
+struct hipfftw_iodim
+{
+    int n;
+    int is;
+    int os;
+};
+
+typedef struct hipfftw_iodim   fftw_iodim;
+typedef struct hipfftw_iodim   fftwf_iodim;
+typedef struct hipfftw_iodim64 fftw_iodim64;
+typedef struct hipfftw_iodim64 fftwf_iodim64;
+
 // Buffer management
 HIPFFT_EXPORT void*   fftw_malloc(size_t n);
 HIPFFT_EXPORT void*   fftwf_malloc(size_t n);
@@ -206,6 +224,96 @@ HIPFFT_EXPORT fftwf_plan fftwf_plan_many_dft_c2r(int            rank,
                                                  int            ostride,
                                                  int            odist,
                                                  unsigned       flags);
+// guru plans
+HIPFFT_EXPORT fftw_plan  fftw_plan_guru_dft(int               rank,
+                                            const fftw_iodim* dims,
+                                            int               howmany_rank,
+                                            const fftw_iodim* howmany_dims,
+                                            fftw_complex*     in,
+                                            fftw_complex*     out,
+                                            int               sign,
+                                            unsigned          flags);
+HIPFFT_EXPORT fftwf_plan fftwf_plan_guru_dft(int                rank,
+                                             const fftwf_iodim* dims,
+                                             int                howmany_rank,
+                                             const fftwf_iodim* howmany_dims,
+                                             fftwf_complex*     in,
+                                             fftwf_complex*     out,
+                                             int                sign,
+                                             unsigned           flags);
+HIPFFT_EXPORT fftw_plan  fftw_plan_guru_dft_r2c(int               rank,
+                                                const fftw_iodim* dims,
+                                                int               howmany_rank,
+                                                const fftw_iodim* howmany_dims,
+                                                double*           in,
+                                                fftw_complex*     out,
+                                                unsigned          flags);
+HIPFFT_EXPORT fftwf_plan fftwf_plan_guru_dft_r2c(int                rank,
+                                                 const fftwf_iodim* dims,
+                                                 int                howmany_rank,
+                                                 const fftwf_iodim* howmany_dims,
+                                                 float*             in,
+                                                 fftwf_complex*     out,
+                                                 unsigned           flags);
+HIPFFT_EXPORT fftw_plan  fftw_plan_guru_dft_c2r(int               rank,
+                                                const fftw_iodim* dims,
+                                                int               howmany_rank,
+                                                const fftw_iodim* howmany_dims,
+                                                fftw_complex*     in,
+                                                double*           out,
+                                                unsigned          flags);
+HIPFFT_EXPORT fftwf_plan fftwf_plan_guru_dft_c2r(int                rank,
+                                                 const fftwf_iodim* dims,
+                                                 int                howmany_rank,
+                                                 const fftwf_iodim* howmany_dims,
+                                                 fftwf_complex*     in,
+                                                 float*             out,
+                                                 unsigned           flags);
+// guru64 plans
+HIPFFT_EXPORT fftw_plan  fftw_plan_guru64_dft(int                 rank,
+                                              const fftw_iodim64* dims,
+                                              int                 howmany_rank,
+                                              const fftw_iodim64* howmany_dims,
+                                              fftw_complex*       in,
+                                              fftw_complex*       out,
+                                              int                 sign,
+                                              unsigned            flags);
+HIPFFT_EXPORT fftwf_plan fftwf_plan_guru64_dft(int                  rank,
+                                               const fftwf_iodim64* dims,
+                                               int                  howmany_rank,
+                                               const fftwf_iodim64* howmany_dims,
+                                               fftwf_complex*       in,
+                                               fftwf_complex*       out,
+                                               int                  sign,
+                                               unsigned             flags);
+HIPFFT_EXPORT fftw_plan  fftw_plan_guru64_dft_r2c(int                 rank,
+                                                  const fftw_iodim64* dims,
+                                                  int                 howmany_rank,
+                                                  const fftw_iodim64* howmany_dims,
+                                                  double*             in,
+                                                  fftw_complex*       out,
+                                                  unsigned            flags);
+HIPFFT_EXPORT fftwf_plan fftwf_plan_guru64_dft_r2c(int                  rank,
+                                                   const fftwf_iodim64* dims,
+                                                   int                  howmany_rank,
+                                                   const fftwf_iodim64* howmany_dims,
+                                                   float*               in,
+                                                   fftwf_complex*       out,
+                                                   unsigned             flags);
+HIPFFT_EXPORT fftw_plan  fftw_plan_guru64_dft_c2r(int                 rank,
+                                                  const fftw_iodim64* dims,
+                                                  int                 howmany_rank,
+                                                  const fftw_iodim64* howmany_dims,
+                                                  fftw_complex*       in,
+                                                  double*             out,
+                                                  unsigned            flags);
+HIPFFT_EXPORT fftwf_plan fftwf_plan_guru64_dft_c2r(int                  rank,
+                                                   const fftwf_iodim64* dims,
+                                                   int                  howmany_rank,
+                                                   const fftwf_iodim64* howmany_dims,
+                                                   fftwf_complex*       in,
+                                                   float*               out,
+                                                   unsigned             flags);
 
 // Non-functional utility APIs
 HIPFFT_EXPORT void   fftw_print_plan(const fftw_plan);
