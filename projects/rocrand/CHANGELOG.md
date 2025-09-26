@@ -3,11 +3,13 @@
 Documentation for rocRAND is available at
 [https://rocm.docs.amd.com/projects/rocRAND/en/latest/](https://rocm.docs.amd.com/projects/rocRAND/en/latest/)
 
-## rocRAND 4.1.0 for ROCm 7.1
+## rocRAND X.X.X for ROCm X.X.X
 
 ### Added
 
 * Added a new CMake option `-DUSE_SYSTEM_LIB` to allow tests to be built from `ROCm` libraries provided by the system.
+
+## rocRAND 4.1.0 for ROCm 7.1
 
 ### Resolved issues
 
