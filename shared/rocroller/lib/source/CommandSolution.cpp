@@ -506,8 +506,19 @@ namespace rocRoller
 
         if(m_command)
         {
+            std::chrono::high_resolution_clock::time_point t1
+                = std::chrono::high_resolution_clock::now();
             generateKernelGraph(m_name);
+            std::chrono::high_resolution_clock::time_point t2
+                = std::chrono::high_resolution_clock::now();
             generateKernelSource();
+            std::chrono::high_resolution_clock::time_point t3
+                = std::chrono::high_resolution_clock::now();
+
+            auto graphGen = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+            auto codeGen  = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
+
+            Log::info("graph = {}, code = {}", graphGen / 1e6, codeGen / 1e6);
         }
         else
         {

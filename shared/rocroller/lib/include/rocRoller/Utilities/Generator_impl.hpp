@@ -214,7 +214,8 @@ namespace rocRoller
 
         m_value.reset();
 
-        Awaitable awaitable{std::forward<Generator<T>>(r)};
+        //Awaitable awaitable{std::forward<Generator<T>>(r)};
+        Awaitable awaitable{std::move(r)};
 
         try
         {
@@ -334,7 +335,7 @@ namespace rocRoller
     auto Generator<T>::Iterator::operator++() -> Iterator&
     {
         //std::puts("operator++");
-        m_coroutine.promise().discard_value();
+        //m_coroutine.promise().discard_value();
         m_coroutine.promise().advance();
         return *this;
 
@@ -546,8 +547,8 @@ namespace rocRoller
     constexpr auto Generator<T>::begin() -> iterator
     {
         //std::puts("begin");
-        if(not m_coroutine.promise().value())
-            m_coroutine.promise().advance();
+        //if(not m_coroutine.promise().value())
+        m_coroutine.promise().advance();
 
         return iterator{m_coroutine};
     }
