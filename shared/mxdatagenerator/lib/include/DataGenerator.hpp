@@ -43,18 +43,47 @@ namespace DGen
     constexpr index_t SPRINKLE_BLOCK_MIN = 3;
     constexpr index_t SPRINKLE_BLOCK_MAX = 15;
 
-    enum DataPattern
+    enum class DataPattern
     {
-        Bounded,
+        Bounded = 0,
         BoundedAlternatingSign,
         Unbounded,
         Trigonometric,
         Normal,
         Identity,
         Ones,
-        Zeros
+        Zeros,
+        Count
         // ...
     };
+
+    std::string toString(DataPattern const& pattern);
+
+    std::string toString(DataPattern const& pattern)
+    {
+        switch(pattern)
+        {
+        case DataPattern::Bounded:
+            return "Bounded";
+        case DataPattern::BoundedAlternatingSign:
+            return "BoundedAlternatingSign";
+        case DataPattern::Unbounded:
+            return "Unbounded";
+        case DataPattern::Trigonometric:
+            return "Trigonometric";
+        case DataPattern::Normal:
+            return "Normal";
+        case DataPattern::Identity:
+            return "Identity";
+        case DataPattern::Ones:
+            return "Ones";
+        case DataPattern::Zeros:
+            return "Zeros";
+        case DataPattern::Count:;
+        }
+
+        return "Invalid";
+    }
 
     enum DataScaling
     {
@@ -1170,21 +1199,22 @@ namespace DGen
     {
         switch(m_options.pattern)
         {
-        case Bounded:
+        case DataPattern::Bounded:
             return generate_pattern_bounded(size);
-        case BoundedAlternatingSign:
+        case DataPattern::BoundedAlternatingSign:
             return generate_pattern_bounded_alternating_sign(size);
-        case Unbounded:
+        case DataPattern::Unbounded:
             return generate_pattern_unbounded(size);
-        case Trigonometric:
+        case DataPattern::Trigonometric:
             return generate_pattern_trigonometric(size);
-        case Normal:
+        case DataPattern::Normal:
             return generate_pattern_normal(size);
-        case Identity:
+        case DataPattern::Identity:
             return generate_pattern_identity(size, stride);
-        case Ones:
+        case DataPattern::Ones:
             return generate_pattern_ones();
-        case Zeros:
+        case DataPattern::Zeros:
+        case DataPattern::Count:
             return;
         }
     }
