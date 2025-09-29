@@ -970,6 +970,7 @@ namespace DGen
 
         const auto block_size = (isScaled<DTYPE>() ? m_options.blockScaling : 1);
 
+        // Prepare a normal distribution with a mean of 0 and a std. deviation of 1
         std::normal_distribution<> normal_dist{0.0, 1.0};
 
         const auto numBlocks = m_dataDesc.array_size / block_size;
