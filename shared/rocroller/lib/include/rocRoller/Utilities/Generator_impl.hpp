@@ -128,13 +128,16 @@ namespace rocRoller
         m_value.reset();
         if(m_coroutine)
         {
-            m_coroutine.promise().advance();
-            //m_coroutine.resume();
-            m_value = m_coroutine.promise().value();
+            auto& promise = m_coroutine.promise();
+            promise.advance();
+            m_value = promise.value();
+
+            //m_coroutine.promise().advance();
+            ////m_coroutine.resume();
+            //m_value = m_coroutine.promise().value();
 
             if(not m_value)
             {
-                //std::cout << "No Value !!\n";
                 m_coroutine = nullptr;
             }
         }
@@ -162,7 +165,6 @@ namespace rocRoller
     {
         m_value     = std::move(v);
         m_coroutine = nullptr;
-        //m_range.reset();
 
         return {};
     }
@@ -172,13 +174,10 @@ namespace rocRoller
     auto Generator<T>::promise_type::yield_value(ARange&& r) noexcept
     {
         auto gen = [](auto iter, auto E) -> Generator<T> {
-            //std::cout << "Inside\n";
             for(; iter != E; iter++)
             {
-                //std::cout << "      Continue!  new value = " << *iter << "\n";
                 co_yield *iter;
             }
-            //std::cout << "Inside Done\n";
         };
 
         return yield_value(gen(r.begin(), r.end()));
@@ -223,7 +222,7 @@ namespace rocRoller
             // must handle it ourselves.
 
             m_coroutine = awaitable.gen.m_coroutine;
-            //std::cout << "      New coroutine = " << m_coroutine.address() << std::endl;
+
             m_coroutine.resume();
             m_value = m_coroutine.promise().value();
 
@@ -331,62 +330,22 @@ namespace rocRoller
             m_value.reset();
     }
 
+    // pre-increment
     template <std::movable T>
     auto Generator<T>::Iterator::operator++() -> Iterator&
     {
         //std::puts("operator++");
-        //m_coroutine.promise().discard_value();
-        m_coroutine.promise().advance();
+        auto& promise = m_coroutine.promise();
+        promise.check_exception();
+        promise.advance();
         return *this;
-
-        //// If the iterator was previously incremented but not dereferenced, pretend we've dereferenced it for consistency.
-        //switch(state())
-        //{
-        //case GeneratorState::HasRange:
-        //case GeneratorState::NoValue:
-        //    get();
-        //default:
-        //    break;
-        //}
-
-        //switch(state())
-        //{
-
-        //case GeneratorState::HasValue:
-        //case GeneratorState::HasRangeValue:
-        //    m_coroutine.promise().discard_value();
-        //    break;
-
-        //// The call to get() from the top of this function should advance to a
-        //// point where we have a value, or to the end of the coroutine.
-        //case GeneratorState::NoValue:
-        //case GeneratorState::HasRange:
-        //    throw std::runtime_error("Invalid generator state!");
-
-        //case GeneratorState::HasCopiedValue:
-        //    m_value.reset();
-        //    break;
-
-        //case GeneratorState::Done:
-        //default:
-        //    break;
-        //}
-        //return *this;
     }
 
+    // post-increment
     template <std::movable T>
-    auto Generator<T>::Iterator::operator++(int) -> Iterator
+    void Generator<T>::Iterator::operator++(int)
     {
-        throw std::runtime_error("calling operator++(int) !!!!!!!!");
-
-        if(!m_coroutine || m_coroutine.done())
-            return *this;
-
-        Iterator tmp(*get());
-
         ++(*this);
-
-        return tmp;
     }
 
     template <std::movable T>
@@ -421,15 +380,10 @@ namespace rocRoller
     T const& Generator<T>::Iterator::operator*() const
     {
         //std::puts("operator*");
-        if(not m_coroutine.promise().value())
+        auto const& value = m_coroutine.promise().value();
+        if(not value)
             throw std::runtime_error("operator* is nullptr!");
-        return (*m_coroutine.promise().value());
-
-        //auto rv = get();
-        //if(rv)
-        //    return *rv;
-
-        //throw std::runtime_error("nullptr!");
+        return *value;
     }
 
     template <std::movable T>
@@ -437,8 +391,6 @@ namespace rocRoller
     {
         //std::puts("operator->");
         return &(*m_coroutine.promise().value());
-
-        //return get();
     }
 
     template <std::movable T>
@@ -452,31 +404,23 @@ namespace rocRoller
         if(not m_coroutine.done())
             return false;
 
-        if(m_coroutine.promise().value())
-            return false;
+        //if(m_coroutine.promise().value())
+        //    return false;
 
         return true;
-
-        //return get() == nullptr;
     }
 
     template <std::movable T>
     bool Generator<T>::Iterator::operator==(std::default_sentinel_t) const
     {
         //std::puts("operator==");
-        //if(not m_coroutine.promise().value())
-        //    m_coroutine.promise().advance();
-
         return isDone();
-
-        //return isDone();
     }
 
     template <std::movable T>
     bool Generator<T>::Iterator::operator!=(std::default_sentinel_t t) const
     {
         return !(*this == t);
-        //return !isDone();
     }
 
     template <std::movable T>
@@ -507,7 +451,6 @@ namespace rocRoller
 
     template <std::movable T>
     Generator<T>::Iterator::Iterator(T value)
-    //: m_value(value)
     {
     }
 
@@ -547,9 +490,7 @@ namespace rocRoller
     constexpr auto Generator<T>::begin() -> iterator
     {
         //std::puts("begin");
-        //if(not m_coroutine.promise().value())
         m_coroutine.promise().advance();
-
         return iterator{m_coroutine};
     }
 

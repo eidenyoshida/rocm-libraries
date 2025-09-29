@@ -368,9 +368,7 @@ namespace rocRoller
 
             template <CInputRangeOf<T> ARange>
             auto yield_value(ARange&& r) noexcept;
-            //constexpr std::suspend_always yield_value(ARange&& r) noexcept;
 
-            //constexpr std::suspend_always yield_value(std::initializer_list<T> r) noexcept;
             auto yield_value(std::initializer_list<T> r) noexcept;
 
             auto yield_value(Generator<T>&& r) noexcept;
@@ -425,7 +423,7 @@ namespace rocRoller
             using Handle = std::coroutine_handle<promise_type>;
 
             Iterator& operator++();
-            Iterator  operator++(int);
+            void      operator++(int);
 
             T const* get() const;
             T const& operator*() const;
@@ -449,7 +447,6 @@ namespace rocRoller
             bool           isDone() const;
             GeneratorState state() const;
 
-            //std::optional<T> m_value;
             mutable Handle m_coroutine;
         };
 
