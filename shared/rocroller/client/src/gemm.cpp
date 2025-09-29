@@ -1157,6 +1157,10 @@ int main(int argc, const char* argv[])
 
         .scaleValueA = 1.0f,
         .scaleValueB = 1.0f,
+
+        .patternA = DataPattern::Bounded,
+        .patternB = DataPattern::Bounded,
+        .patternC = DataPattern::Bounded,
     };
 
     rocRoller::Client::GEMMClient::TypeParameters types;
@@ -1202,6 +1206,30 @@ int main(int argc, const char* argv[])
     app.add_option("--beta", problem.beta, "Beta scalar.");
     app.add_option("--scaleValue_A", problem.scaleValueA, "Single scale value for A.");
     app.add_option("--scaleValue_B", problem.scaleValueB, "Single scale value for B.");
+    app.add_option(
+        "--patternA",
+        [&problem](auto res) -> bool {
+            problem.patternA = fromString<DataPattern>(res[0]);
+            return true;
+        },
+        "Data pattern for A [Bounded | BoundedAlternatingSign | Unbounded | Trigonometric | Normal "
+        "| Identity | Ones | Zeros]. Default: Bounded.");
+    app.add_option(
+        "--patternB",
+        [&problem](auto res) -> bool {
+            problem.patternB = fromString<DataPattern>(res[0]);
+            return true;
+        },
+        "Data pattern for B [Bounded | BoundedAlternatingSign | Unbounded | Trigonometric | Normal "
+        "| Identity | Ones | Zeros]. Default: Bounded.");
+    app.add_option(
+        "--patternC",
+        [&problem](auto res) -> bool {
+            problem.patternC = fromString<DataPattern>(res[0]);
+            return true;
+        },
+        "Data pattern for C [Bounded | BoundedAlternatingSign | Unbounded | Trigonometric | Normal "
+        "| Identity | Ones | Zeros]. Default: Bounded.");
 
     //
     // Problem types
