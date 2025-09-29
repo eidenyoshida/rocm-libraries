@@ -360,48 +360,46 @@ namespace
         template <rocfft_transform_type dft_type, rocfft_precision prec>
         bool is_compatible_for_inplace() const
         {
+            constexpr size_t ielem_sz
+                = sizeof(hipfftw_user_data_t<dft_type, prec, hipfftw_io_label::INPUT_DATA>);
+            constexpr size_t oelem_sz
+                = sizeof(hipfftw_user_data_t<dft_type, prec, hipfftw_io_label::OUTPUT_DATA>);
             // Check that the memory location is identical on input an output for the first
-            // element of every leading dimension's sub-array. In order words, using row-major
+            // element of every leading dimension's sub-array. In other words, using row-major
             // convention, check that for every integer arrays
             // {k[0], k[1], ..., k[rank - 2], 0} ":= k" and every
             // {m[0], m[1], .., m[batch_dim-1]} ":= m" (in applicable ranges), the byte offset
             // on input, i.e.,
-            // sizeof(hipfftw_user_data_t<dft_type, prec, hipfftw_io_label::INPUT_DATA>)*
-            //      std::inner_product(m.begin(), m.end(), idist.begin(),
-            //                         std::inner_product(k.begin(), k.end(), istrides.begin(), 0))
+            // ielem_sz * std::inner_product(m.begin(), m.end(), idist.begin(),
+            //                               std::inner_product(k.begin(), k.end(), istrides.begin(), 0))
             // must be equal to the byte offset on output, i.e.,
-            // sizeof(hipfftw_user_data_t<dft_type, prec, hipfftw_io_label::OUTPUT_DATA>)*
-            //      std::inner_product(m.begin(), m.end(), odist.begin(),
-            //                         std::inner_product(k.begin(), k.end(), ostrides.begin(), 0)).
+            // oelem_sz * std::inner_product(m.begin(), m.end(), odist.begin(),
+            //                               std::inner_product(k.begin(), k.end(), ostrides.begin(), 0)).
             // This requirement translates into the followng element-wise conditions on
-            // idist, odist, istides, and ostides.
+            // idist, odist, istrides, and ostrides.
             for(auto batch_dim = 0; batch_dim < batch_rank; batch_dim++)
             {
                 // 0 <= m[batch_dim] < batches[batch_dim], so the corresponding distance is
                 // irrelevant if batches[batch_dim] == 1.
                 if(batches[batch_dim] == 1)
                     continue;
-                if(idist[batch_dim]
-                       * sizeof(hipfftw_user_data_t<dft_type, prec, hipfftw_io_label::INPUT_DATA>)
-                   != odist[batch_dim]
-                          * sizeof(
-                              hipfftw_user_data_t<dft_type, prec, hipfftw_io_label::OUTPUT_DATA>))
-                {
+                if(idist[batch_dim] * ielem_sz != odist[batch_dim] * oelem_sz)
                     return false;
-                }
             }
             for(auto dim = 0; dim < rank - 1 /* exclude leading dimension */; dim++)
             {
                 if(lengths[dim] == 1)
                     continue;
-                if(istrides[dim]
-                       * sizeof(hipfftw_user_data_t<dft_type, prec, hipfftw_io_label::INPUT_DATA>)
-                   != ostrides[dim]
-                          * sizeof(
-                              hipfftw_user_data_t<dft_type, prec, hipfftw_io_label::OUTPUT_DATA>))
-                {
+                if(istrides[dim] * ielem_sz != ostrides[dim] * oelem_sz)
                     return false;
-                }
+            }
+            if(lengths.back() == 1)
+                return true; // leading dimension's stride is irrelevant
+            if constexpr(!is_real(dft_type))
+            {
+                // elementary strides must be equal
+                if(istrides.back() != ostrides.back())
+                    return false;
             }
             return true;
         }
