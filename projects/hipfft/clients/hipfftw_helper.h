@@ -1140,7 +1140,11 @@ private:
             const auto ifact = dft_kind == fft_transform_type_real_forward ? 1 : 2;
             const auto ofact = dft_kind == fft_transform_type_real_inverse ? 1 : 2;
             for(size_t dim = 0; ret && dim < rank - 1; dim++)
+            {
+                if(lengths[dim] == 1)
+                    continue;
                 ret = ifact * istrides[dim] == ofact * ostrides[dim];
+            }
             if(ret && is_complex(dft_kind))
                 ret = istrides.back() == ostrides.back();
         }
