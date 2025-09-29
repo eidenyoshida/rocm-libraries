@@ -1169,7 +1169,7 @@ namespace
                 // plan cannot be created and arguments were invalid...
                 // We may however have a mixed bag of some invalid and other unsupported args.
                 // In such cases, the specific exception to expect would be ill-defined
-                if(!plan_helper.has_unsupported_args_for(creation_options))
+                if(!plan_helper.has_unsupported_args())
                     return hipfftw_internal_exception::invalid_args;
                 else
                     return hipfftw_internal_exception::ill_defined;
