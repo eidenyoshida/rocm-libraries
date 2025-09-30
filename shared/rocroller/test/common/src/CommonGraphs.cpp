@@ -130,9 +130,9 @@ namespace rocRollerTest::Graphs
 
     void MatrixMultiply::setUseLDS(bool a, bool b, bool d)
     {
-        m_useLDSA = a;
-        m_useLDSB = b;
-        m_useLDSD = d;
+        m_loadModeA = a ? SolutionParams::LoadMode::VGPRToLDS : SolutionParams::LoadMode::VGPR;
+        m_loadModeB = b ? SolutionParams::LoadMode::VGPRToLDS : SolutionParams::LoadMode::VGPR;
+        m_useLDSD   = d;
     }
 
     std::shared_ptr<CommandParameters> MatrixMultiply::getCommandParameters() const
@@ -145,7 +145,7 @@ namespace rocRollerTest::Graphs
             auto macTileA = MacroTile({m_macM, m_macK},
                                       LayoutType::MATRIX_A,
                                       {m_waveM, m_waveN, m_waveK, m_waveB},
-                                      m_useLDSA ? MemoryType::WAVE_LDS : MemoryType::WAVE);
+                                      GetMemoryType(m_loadModeA));
             params->setDimensionInfo(m_tagA, macTileA);
         }
         if(m_aMode == Operations::ScaleMode::Separate)
@@ -153,14 +153,14 @@ namespace rocRollerTest::Graphs
             auto macTileScaleA = MacroTile({m_macM, m_macK / 32},
                                            LayoutType::MATRIX_A,
                                            {m_waveM, m_waveN, m_waveK / 32, m_waveB},
-                                           m_useLDSA ? MemoryType::WAVE_LDS : MemoryType::WAVE);
+                                           GetMemoryType(m_loadModeA));
             params->setDimensionInfo(m_tagScaleA, macTileScaleA);
         }
         {
             auto macTileB = MacroTile({m_macK, m_macN},
                                       LayoutType::MATRIX_B,
                                       {m_waveM, m_waveN, m_waveK, m_waveB},
-                                      m_useLDSB ? MemoryType::WAVE_LDS : MemoryType::WAVE);
+                                      GetMemoryType(m_loadModeB));
             params->setDimensionInfo(m_tagB, macTileB);
         }
         if(m_bMode == Operations::ScaleMode::Separate)
@@ -168,7 +168,7 @@ namespace rocRollerTest::Graphs
             auto macTileScaleB = MacroTile({m_macK, m_macN / 32},
                                            LayoutType::MATRIX_B,
                                            {m_waveM, m_waveN, m_waveK / 32, m_waveB},
-                                           m_useLDSB ? MemoryType::WAVE_LDS : MemoryType::WAVE);
+                                           GetMemoryType(m_loadModeB));
             params->setDimensionInfo(m_tagScaleB, macTileScaleB);
         }
         {
@@ -321,8 +321,10 @@ namespace rocRollerTest::Graphs
 
     void GEMM::setUseLDS(bool a, bool b, bool d)
     {
-        m_problem.loadLDSA  = a;
-        m_problem.loadLDSB  = b;
+        m_problem.loadModeA
+            = a ? SolutionParams::LoadMode::VGPRToLDS : SolutionParams::LoadMode::VGPR;
+        m_problem.loadModeB
+            = b ? SolutionParams::LoadMode::VGPRToLDS : SolutionParams::LoadMode::VGPR;
         m_problem.storeLDSD = d;
     }
 
@@ -378,12 +380,12 @@ namespace rocRollerTest::Graphs
             = MacroTile({m_problem.macM, m_problem.macK},
                         LayoutType::MATRIX_A,
                         {m_problem.waveM, m_problem.waveN, m_problem.waveK, m_problem.waveB},
-                        m_problem.loadLDSA ? MemoryType::WAVE_LDS : MemoryType::WAVE);
+                        GetMemoryType(m_problem.loadModeA));
         auto macTileB
             = MacroTile({m_problem.macK, m_problem.macN},
                         LayoutType::MATRIX_B,
                         {m_problem.waveM, m_problem.waveN, m_problem.waveK, m_problem.waveB},
-                        m_problem.loadLDSB ? MemoryType::WAVE_LDS : MemoryType::WAVE);
+                        GetMemoryType(m_problem.loadModeB));
         auto macTileC
             = MacroTile({m_problem.macM, m_problem.macN},
                         LayoutType::MATRIX_ACCUMULATOR,

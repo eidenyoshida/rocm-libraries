@@ -32,6 +32,7 @@
 #include <rocRoller/DataTypes/DataTypes.hpp>
 #include <rocRoller/GPUArchitecture/GPUArchitectureTarget.hpp>
 #include <rocRoller/Operations/BlockScale_fwd.hpp>
+#include <rocRoller/Parameters/Solution/LoadOption.hpp>
 #include <rocRoller/Utilities/Utils.hpp>
 
 #include "client/BenchmarkSolution.hpp"
@@ -143,12 +144,9 @@ namespace rocRoller
                 bool prefetchScale = false;
 
                 // Other options
-                bool loadLDSA  = true;
-                bool loadLDSB  = true;
-                bool storeLDSD = true;
-
-                bool direct2LDSA = false;
-                bool direct2LDSB = false;
+                Parameters::Solution::LoadMode loadModeA{Parameters::Solution::LoadMode::VGPRToLDS};
+                Parameters::Solution::LoadMode loadModeB{Parameters::Solution::LoadMode::VGPRToLDS};
+                bool                           storeLDSD = true;
 
                 bool prefetch          = false;
                 int  prefetchInFlight  = 2;

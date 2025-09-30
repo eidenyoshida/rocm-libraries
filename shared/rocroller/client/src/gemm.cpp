@@ -54,6 +54,8 @@
 
 using namespace rocRoller;
 
+namespace SolutionParams = rocRoller::Parameters::Solution;
+
 enum ReturnCodes : int
 {
     OK                         = 0,
@@ -1107,12 +1109,9 @@ int main(int argc, const char* argv[])
         .swizzleScale  = false,
         .prefetchScale = false,
 
-        .loadLDSA  = true,
-        .loadLDSB  = true,
+        .loadModeA = SolutionParams::LoadMode::VGPRToLDS,
+        .loadModeB = SolutionParams::LoadMode::VGPRToLDS,
         .storeLDSD = true,
-
-        .direct2LDSA = false,
-        .direct2LDSB = false,
 
         .prefetch          = false,
         .prefetchInFlight  = 0,
@@ -1302,11 +1301,9 @@ int main(int argc, const char* argv[])
                    "Force an XCC-aware workgroup remapping value. (Optional)");
     app.add_option("--unroll_x", solution.unrollX, "Unroll size in X.");
     app.add_option("--unroll_y", solution.unrollY, "Unroll size in Y.");
-    app.add_flag("--loadLDS_A", solution.loadLDSA, "Use LDS when loading A.");
-    app.add_flag("--loadLDS_B", solution.loadLDSB, "Use LDS when loading B.");
+    app.add_flag("--load_A", solution.loadModeA, "How to load A. Default: VGPRToLDS");
+    app.add_flag("--load_B", solution.loadModeB, "How to load B. Default: VGPRToLDS");
     app.add_flag("--storeLDS_D", solution.storeLDSD, "Use LDS when storing D.");
-    app.add_flag("--direct2LDS_A", solution.direct2LDSA, "Use direct-to-LDS when loading A.");
-    app.add_flag("--direct2LDS_B", solution.direct2LDSB, "Use direct-to-LDS when loading B.");
     app.add_flag(
         "--betaInFma", solution.betaInFma, "Use beta in FMA instruction instead of alpha.");
     app.add_option("--scheduler", solution.scheduler, "Which scheduler to use.");
@@ -1745,7 +1742,8 @@ int main(int argc, const char* argv[])
             solution.prefetchMixMemOps = false;
 
         // TODO: enable (prefetchMixMemOps == true && prefetchLDSFactor == 2 && direct2LDSA/B = true)
-        if(solution.prefetchLDSFactor == 2 && (solution.direct2LDSA || solution.direct2LDSB))
+        if(solution.prefetchLDSFactor == 2
+           && (IsBufferToLDS(solution.loadModeA) || IsBufferToLDS(solution.loadModeB)))
             solution.prefetchMixMemOps = false;
     }
 
