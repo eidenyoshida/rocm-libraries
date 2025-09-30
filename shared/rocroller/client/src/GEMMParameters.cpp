@@ -196,6 +196,7 @@ namespace rocRoller
                 s << "SwizzleScale:        " << x.swizzleScale << std::endl;
                 s << "Load A: " << x.loadModeA << std::endl;
                 s << "Load B: " << x.loadModeB << std::endl;
+                s << "Store D LDS: " << x.storeLDSD << std::endl;
                 s << "LSDScale:  " << x.loadLDSScaleA << x.loadLDSScaleB << std::endl;
                 s << "Prefetch:  "
                   << "enabled:" << x.prefetch << " inflight:" << x.prefetchInFlight
