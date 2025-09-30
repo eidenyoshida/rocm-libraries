@@ -99,7 +99,7 @@ namespace rocRoller
                          const float             max,
                          const uint32_t          seed,
                          const index_t           blockScaling = 1,
-                         const DataPattern       pattern      = Bounded)
+                         const DataPattern       pattern      = DataPattern::Bounded)
     {
         auto sizes   = desc.sizes();
         auto strides = desc.strides();
@@ -166,7 +166,8 @@ namespace rocRoller
                                                               const uint32_t    seed = 1713573849,
                                                               bool              hasScale = false,
                                                               const int         blockScaling = 1,
-                                                              const DataPattern pattern = Bounded)
+                                                              const DataPattern pattern
+                                                              = DataPattern::Bounded)
     {
         if(hasScale)
             AssertFatal(blockScaling == 32, "Invalid scale block size: ", ShowValue(blockScaling));
@@ -189,9 +190,9 @@ namespace rocRoller
                    float                   min            = -1.f,
                    float                   max            = 1.f,
                    const uint              scaleBlockSize = 32,
-                   DataPattern             patternA       = Bounded,
-                   DataPattern             patternB       = Bounded,
-                   DataPattern             patternC       = Bounded
+                   DataPattern             patternA       = DataPattern::Bounded,
+                   DataPattern             patternB       = DataPattern::Bounded,
+                   DataPattern             patternC       = DataPattern::Bounded
 
     )
     {
@@ -230,9 +231,9 @@ namespace rocRoller
                    TensorDescriptor& descC,
                    float             min      = -1.f,
                    float             max      = 1.f,
-                   DataPattern       patternA = Bounded,
-                   DataPattern       patternB = Bounded,
-                   DataPattern       patternC = Bounded)
+                   DataPattern       patternA = DataPattern::Bounded,
+                   DataPattern       patternB = DataPattern::Bounded,
+                   DataPattern       patternC = DataPattern::Bounded)
     {
         std::vector<uint8_t> defaultHostScaleA;
         std::vector<uint8_t> defaultHostScaleB;
@@ -249,6 +250,7 @@ namespace rocRoller
                   false,
                   min,
                   max,
+                  32,
                   patternA,
                   patternB,
                   patternC);
