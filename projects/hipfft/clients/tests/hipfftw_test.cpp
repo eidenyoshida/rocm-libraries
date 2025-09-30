@@ -262,6 +262,9 @@ namespace
         {
             if(!vector_has_valid_values_as<int>(fwd_domain_nembed, fwd_domain_nembed.size(), 1))
                 throw valid_values_cannot_be_created();
+            if(std::count(fwd_domain_nembed.begin(), fwd_domain_nembed.end(), 1)
+               == fwd_domain_nembed.size())
+                throw valid_values_cannot_be_created();
             if(is_real_inplace && fwd_domain_nembed.back() % 2 == 1)
                 throw valid_values_cannot_be_created();
         }
@@ -295,7 +298,9 @@ namespace
                 else
                     check = fwd_domain_nembed[dim] >= ret[dim] && ret[dim] > 0;
             }
-            return check;
+            // rule out testing for all length values of 1 as it triggers very questionable
+            // corner-case usage where all strides become irrelevant on paper
+            return check && std::count(ret.begin(), ret.end(), 1) != ret.size();
         };
         make_lengths();
         while(lengths_are_valid() != validity_flag)
