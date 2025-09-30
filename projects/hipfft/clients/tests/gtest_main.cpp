@@ -53,6 +53,8 @@ size_t             random_seed;
 std::random_device default_seed_dev;
 // Overall probability of running conventional tests
 double test_prob;
+// Probability of running non-minimal hipfftw tests
+double hipfftw_test_prob;
 // Modifier for probability of running tests with complex interleaved data
 double complex_interleaved_prob_factor;
 // Modifier for probability of running tests with real data
@@ -288,7 +290,14 @@ int main(int argc, char* argv[])
     const auto opt_help = app.add_flag("-h, --help", "Produces this help message");
     app.add_option("-v, --verbose", verbose, "Print out detailed information for the tests")
         ->default_val(0);
-    app.add_option("--test_prob", test_prob, "Probability of running individual tests")
+    app.add_option("--test_prob",
+                   test_prob,
+                   "Probability of running individual tests (excluding non-minimal hipfftw tests)")
+        ->default_val(1.0)
+        ->check(CLI::Range(0.0, 1.0));
+    app.add_option("--hipfftw_test_prob",
+                   hipfftw_test_prob,
+                   "Probability of running non-minimal hipfftw tests")
         ->default_val(1.0)
         ->check(CLI::Range(0.0, 1.0));
     app.add_option("--real_prob",
@@ -364,7 +373,8 @@ int main(int argc, char* argv[])
         ->each([&](const std::string&) {
             // The objective is to have an test that takes about 5 minutes, so just set the
             // probability per test to a small value to achieve this result.
-            test_prob = 0.002;
+            test_prob         = 0.002;
+            hipfftw_test_prob = 0.02;
         });
     // Token string to fully specify fft params for the manual test.
     std::string test_token;

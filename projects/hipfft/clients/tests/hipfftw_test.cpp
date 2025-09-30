@@ -1768,11 +1768,12 @@ namespace
             {
                 const double roll = hash_prob(random_seed, test.to_string());
                 // not distinguishing between real/complex for this list generation
-                if(roll > test_prob)
+                if(roll > hipfftw_test_prob)
                 {
                     if(verbose > 4)
                     {
-                        std::cout << "Test skipped: (roll=" << roll << " > " << test_prob << ")\n";
+                        std::cout << "Test skipped: (roll=" << roll << " > " << hipfftw_test_prob
+                                  << ")\n";
                     }
                     continue;
                 }
@@ -2982,7 +2983,8 @@ namespace
         {
             const double roll = hash_prob(random_seed, test.to_string());
             const double run_prob
-                = test_prob * (is_real(test.plan_helper.get_dft_kind()) ? real_prob_factor : 1.0);
+                = hipfftw_test_prob
+                  * (is_real(test.plan_helper.get_dft_kind()) ? real_prob_factor : 1.0);
 
             if(roll > run_prob)
             {
