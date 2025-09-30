@@ -34,8 +34,8 @@
 #include <rocRoller/Operations/BlockScale_fwd.hpp>
 #include <rocRoller/Utilities/Utils.hpp>
 
-#include "DataGenerator.hpp"
 #include "client/BenchmarkSolution.hpp"
+#include <DataGenerator.hpp>
 
 namespace rocRoller
 {

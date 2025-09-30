@@ -24,7 +24,6 @@
  *
  *******************************************************************************/
 
-#include "DataGenerator.hpp"
 #include <filesystem>
 
 #ifdef ROCROLLER_USE_HIP

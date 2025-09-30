@@ -608,7 +608,7 @@ def test_gemm_config(tmp_path):
 
     co_path = tmp_path / "test_config.co"
     yaml_path = co_path.with_suffix(".yaml")
-
+    print(yaml_path)
     cmd = [gemm]
     cmd.extend(["generate", "--co", co_path])
     cmd.extend(solution_params)
