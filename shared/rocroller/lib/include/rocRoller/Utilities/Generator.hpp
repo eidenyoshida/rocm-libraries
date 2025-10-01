@@ -379,12 +379,9 @@ namespace rocRoller
 
             void check_exception() const;
 
-            constexpr GeneratorState state() const;
-
             constexpr std::optional<T> const& value() const;
 
             void discard_value();
-            void advance_range();
 
             void advance();
 
@@ -425,7 +422,6 @@ namespace rocRoller
             Iterator& operator++();
             void      operator++(int);
 
-            T const* get() const;
             T const& operator*() const;
             T const* operator->() const;
 
@@ -444,8 +440,7 @@ namespace rocRoller
             Iterator(T value);
 
         private:
-            bool           isDone() const;
-            GeneratorState state() const;
+            bool isDone() const;
 
             mutable Handle m_coroutine;
         };
@@ -472,8 +467,6 @@ namespace rocRoller
         // cppcheck-suppress functionConst
         // cppcheck-suppress functionStatic
         constexpr iterator end();
-
-        constexpr GeneratorState state() const;
 
         /**
          * Returns a `Container<T>` constructed with `begin()` and `end()` as arguments.
