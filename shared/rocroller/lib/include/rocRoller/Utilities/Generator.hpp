@@ -391,8 +391,6 @@ namespace rocRoller
             using Handle = std::coroutine_handle<promise_type>;
             mutable Handle m_coroutine;
 
-            //std::unique_ptr<Range<T>> m_range;
-
             mutable std::exception_ptr m_exception = nullptr;
         };
 
