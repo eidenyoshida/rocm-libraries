@@ -75,31 +75,6 @@ namespace rocRoller
             {
                 return stream << toString(mode);
             }
-
-            std::istream& operator>>(std::istream& stream, LoadMode& mode)
-            {
-                std::string strValue;
-                stream >> strValue;
-
-                if(strValue == toString(LoadMode::VGPR))
-                {
-                    mode = LoadMode::VGPR;
-                }
-                else if(strValue == toString(LoadMode::VGPRToLDS))
-                {
-                    mode = LoadMode::VGPRToLDS;
-                }
-                else if(strValue == toString(LoadMode::BufferToLDS))
-                {
-                    mode = LoadMode::BufferToLDS;
-                }
-                else
-                {
-                    Throw<FatalError>(fmt::format("Invalid LoadMode {}\n", strValue));
-                }
-
-                return stream;
-            }
         } // namespace Solution
     } // namespace Parameters
 } // namespace rocRoller

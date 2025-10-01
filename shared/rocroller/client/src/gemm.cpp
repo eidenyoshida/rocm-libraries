@@ -1301,8 +1301,20 @@ int main(int argc, const char* argv[])
                    "Force an XCC-aware workgroup remapping value. (Optional)");
     app.add_option("--unroll_x", solution.unrollX, "Unroll size in X.");
     app.add_option("--unroll_y", solution.unrollY, "Unroll size in Y.");
-    app.add_flag("--load_A", solution.loadModeA, "How to load A. Default: VGPRToLDS");
-    app.add_flag("--load_B", solution.loadModeB, "How to load B. Default: VGPRToLDS");
+    app.add_option(
+        "--load_A",
+        [&solution](auto str) -> bool {
+            solution.loadModeA = fromString<SolutionParams::LoadMode>(str[0]);
+            return true;
+        },
+        "How to load A (VGPR, VGPRToLDS, BufferToLDS). Default: VGPRToLDS");
+    app.add_option(
+        "--load_B",
+        [&solution](auto str) -> bool {
+            solution.loadModeB = fromString<SolutionParams::LoadMode>(str[0]);
+            return true;
+        },
+        "How to load B (VGPR, VGPRToLDS, BufferToLDS). Default: VGPRToLDS");
     app.add_flag("--storeLDS_D", solution.storeLDSD, "Use LDS when storing D.");
     app.add_flag(
         "--betaInFma", solution.betaInFma, "Use beta in FMA instruction instead of alpha.");
