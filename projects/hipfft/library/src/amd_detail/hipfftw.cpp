@@ -395,13 +395,10 @@ namespace
             }
             if(lengths.back() == 1)
                 return true; // leading dimension's stride is irrelevant
-            if constexpr(!is_real(dft_type))
-            {
-                // elementary strides must be equal
-                if(istrides.back() != ostrides.back())
-                    return false;
-            }
-            return true;
+            if constexpr(!is_real(dft_type)) // elementary strides must be equal
+                return istrides.back() == ostrides.back();
+            else // elementary strides must both be 1
+                return istrides.back() == 1 && ostrides.back() == 1;
         }
 
         bool has_unaliased_output_for(rocfft_transform_type dft_type) const

@@ -1456,11 +1456,11 @@ namespace
         std::vector<hipfftw_helper<prec>> ret;
         constexpr int batch_rank = 1; // nothing else possible via the *_many_dft* apis
 
-        auto get_random_elementary_stride = [](bool valid_stride) {
+        auto get_random_elementary_stride = [](bool valid_and_supported_stride) {
             static std::uniform_int_distribution<ptrdiff_t> stride_rng(
                 -max_elementary_stride_for_hipfftw_test, max_elementary_stride_for_hipfftw_test);
             auto ret = stride_rng(get_pseudo_rng());
-            while((ret > 0) == valid_stride)
+            while((ret > 0) == valid_and_supported_stride)
                 ret = stride_rng(get_pseudo_rng());
             return ret;
         };
@@ -1525,20 +1525,19 @@ namespace
                                         dft_kind,
                                         placement))
                                 {
-                                    for(auto istride : {get_random_elementary_stride(!valid_value),
-                                                        get_random_elementary_stride(valid_value)})
+                                    std::set<ptrdiff_t> istride_range
+                                        = {get_random_elementary_stride(!valid_value),
+                                           get_random_elementary_stride(valid_value)};
+                                    if(is_real_ip)
+                                        istride_range.insert(1);
+                                    for(auto istride : istride_range)
                                     {
-                                        std::vector<ptrdiff_t> ostride_range
+                                        std::set<ptrdiff_t> ostride_range
                                             = {get_random_elementary_stride(!valid_value),
                                                get_random_elementary_stride(valid_value)};
-                                        if(placement == fft_placement_inplace && istride > 0
-                                           && std::find(ostride_range.begin(),
-                                                        ostride_range.end(),
-                                                        istride)
-                                                  == ostride_range.end())
-                                        {
-                                            ostride_range.push_back(istride);
-                                        }
+                                        if(placement == fft_placement_inplace && istride > 0)
+                                            ostride_range.insert(istride);
+
                                         for(auto ostride : ostride_range)
                                         {
                                             const auto& inembed = is_fwd(dft_kind)
@@ -2742,7 +2741,9 @@ namespace
             = get_random_vector<valid_value, int>(batch_rank, max_nbatch_for_hipfftw_test, 1);
         // working by fwd/bwd domain instead of I/O for ease of generalization
         // fwd domain := input (resp. output) domain of forward (resp. inverse) transform
-        const auto   elementary_fwd_stride = stride_rng(get_pseudo_rng());
+        const auto   elementary_fwd_stride = is_real(dft_kind) && placement == fft_placement_inplace
+                                                 ? 1
+                                                 : stride_rng(get_pseudo_rng());
         const auto   elementary_bwd_stride = placement == fft_placement_inplace
                                                  ? elementary_fwd_stride
                                                  : stride_rng(get_pseudo_rng());
@@ -2852,16 +2853,15 @@ namespace
         // TODO: re-enable 1D for complex DFTs as well once rocfft can reliably handle those
         const auto rank = is_complex(dft_kind) ? get_random_rank<valid_value, 2, 3>()
                                                : get_random_rank<valid_value, 1, 3>();
-        // cannot do nembed-compliant in-place, multi-dimensional r2c
-        const auto    placement  = is_real(dft_kind) && rank > 1 ? fft_placement_notinplace
-                                                                 : get_random_element_in(place_range);
+        // real in-place requires unit strides, hence out-of-place only for inner-batched, real transforms
+        const auto placement
+            = is_real(dft_kind) ? fft_placement_notinplace : get_random_element_in(place_range);
         constexpr int batch_rank = 1;
         const auto    batches
             = get_random_vector<valid_value, int>(batch_rank, max_nbatch_for_hipfftw_test, 1);
-        const ptrdiff_t bwd_dist = 1;
-        const ptrdiff_t fwd_dist = is_real(dft_kind) && placement == fft_placement_inplace ? 2 : 1;
-        const size_t    max_data_size_per_batch
-            = max_byte_size_for_hipfftw_tests() / (fwd_dist * batches[0]);
+        constexpr ptrdiff_t dist = 1; // same in fwd and bwd domains
+        const size_t        max_data_size_per_batch
+            = max_byte_size_for_hipfftw_tests() / (dist * batches[0]);
         const ptrdiff_t max_len    = std::min(static_cast<ptrdiff_t>(max_length_for_hipfftw_test),
                                            find_threshold_length_for_byte_size<prec>(
                                                max_data_size_per_batch, rank, is_real(dft_kind)));
@@ -2869,19 +2869,16 @@ namespace
         auto            fwd_nembed = lengths;
         auto            bwd_nembed = lengths;
         if(is_real(dft_kind))
-        {
             bwd_nembed.back() = bwd_nembed.back() / 2 + 1;
-            if(placement == fft_placement_inplace)
-                fwd_nembed.back() = 2 * bwd_nembed.back();
-        }
-        const auto& istride  = batches[0] * (is_fwd(dft_kind) ? fwd_dist : bwd_dist);
-        const auto& ostride  = batches[0] * (is_fwd(dft_kind) ? bwd_dist : fwd_dist);
+
+        const auto& istride  = batches[0] * dist;
+        const auto& ostride  = batches[0] * dist;
         const auto& inembed  = is_fwd(dft_kind) ? fwd_nembed : bwd_nembed;
         const auto& onembed  = is_fwd(dft_kind) ? bwd_nembed : fwd_nembed;
         const auto  istrides = compute_strides_from_nembed(inembed, istride);
         const auto  ostrides = compute_strides_from_nembed(onembed, ostride);
-        const auto  idist    = std::vector<ptrdiff_t>(1, is_fwd(dft_kind) ? fwd_dist : bwd_dist);
-        const auto  odist    = std::vector<ptrdiff_t>(1, is_fwd(dft_kind) ? bwd_dist : fwd_dist);
+        const auto  idist    = std::vector<ptrdiff_t>(1, dist);
+        const auto  odist    = std::vector<ptrdiff_t>(1, dist);
 
         helper.set_creation_args(dft_kind,
                                  rank,

@@ -1145,8 +1145,13 @@ private:
                     continue;
                 ret = ifact * istrides[dim] == ofact * ostrides[dim];
             }
-            if(ret && is_complex(dft_kind))
-                ret = istrides.back() == ostrides.back();
+            if(ret)
+            {
+                if(is_complex(dft_kind))
+                    ret = istrides.back() == ostrides.back();
+                else // unit elementary strides only for in-place real transforms
+                    ret = istrides.back() == 1 && ostrides.back() == 1;
+            }
         }
         if(!ret)
             return ret;
