@@ -78,14 +78,10 @@ namespace rocRoller
     }
 
     template <typename T, CInputRangeOf<T> TheRange>
-    constexpr bool ConcreteRange<T, TheRange>::increment()
+    constexpr void ConcreteRange<T, TheRange>::increment()
     {
         if(m_iter != m_range.end())
-        {
             ++m_iter;
-            return true;
-        }
-        return false;
     }
 
     template <std::movable T>

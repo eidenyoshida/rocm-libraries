@@ -106,7 +106,7 @@ namespace rocRoller
         /// @brief  Takes the next value from the range.  Will not return a value
         /// if we have reached the end of the range.
         virtual constexpr std::optional<T> take_value() = 0;
-        virtual constexpr bool             increment()  = 0;
+        virtual constexpr void             increment()  = 0;
     };
 
     template <typename T, CInputRangeOf<T> TheRange>
@@ -116,7 +116,7 @@ namespace rocRoller
         explicit ConcreteRange(ARange&& r);
 
         virtual constexpr std::optional<T> take_value() override;
-        virtual constexpr bool             increment() override;
+        virtual constexpr void             increment() override;
 
     private:
         TheRange m_range;
@@ -388,8 +388,7 @@ namespace rocRoller
         private:
             mutable std::optional<T> m_value;
 
-            using Handle = std::coroutine_handle<promise_type>;
-            mutable Handle m_coroutine;
+            mutable std::coroutine_handle<promise_type> m_coroutine;
 
             mutable std::exception_ptr m_exception = nullptr;
         };
