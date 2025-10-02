@@ -202,21 +202,21 @@ namespace rocRoller
         using STB          = typename SegmentedTypeOf<TB>::type;
 
         {
-            auto dgenA = getDataGenerator<STA>(descA, min, max, seed + 1, blockScalingA);
+            auto dgenA = getDataGenerator<STA>(descA, min, max, seed + 1, blockScalingA, patternA);
             hostA      = getRandomVector<STA>(dgenA, hasScaleA);
             if(hasScaleA)
                 hostScaleA = dgenA.getScaleBytes();
         }
 
         {
-            auto dgenB = getDataGenerator<STB>(descB, min, max, seed + 2, blockScalingB);
+            auto dgenB = getDataGenerator<STB>(descB, min, max, seed + 2, blockScalingB, patternB);
             hostB      = getRandomVector<STB>(dgenB, hasScaleB);
             if(hasScaleB)
                 hostScaleB = dgenB.getScaleBytes();
         }
 
         {
-            auto dgenC = getDataGenerator<TC>(descC, min, max, seed);
+            auto dgenC = getDataGenerator<TC>(descC, min, max, seed, 1, patternC);
             hostC      = getRandomVector<TC>(dgenC, false);
         }
     }

@@ -161,6 +161,10 @@ class GEMMProblem:
     scaleValue_A: float = 1.0
     scaleValue_B: float = 1.0
 
+    patternA: str = "Bounded"
+    patternB: str = "Bounded"
+    patternC: str = "Bounded"
+
     workgroupMappingDim: int = -1
     workgroupMappingValue: int = -1
 
